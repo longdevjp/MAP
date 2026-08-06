@@ -57,6 +57,24 @@
     padding:8px 12px; font-size:13px; font-family:inherit;
     cursor:pointer; transition:all .15s ease; white-space:nowrap;
   }
+  #exportWrap{ position:relative; }
+  #exportMenu{
+    display:none; position:absolute; top:calc(100% + 6px); left:0;
+    min-width:240px; background:var(--surface-2); border:1px solid var(--line);
+    z-index:200; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  #exportMenu.open{ display:flex; }
+  #exportMenu button{
+    background:none; border:none; color:var(--text); text-align:left;
+    padding:10px 12px; font-family:inherit; font-size:12.5px; cursor:pointer;
+    border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  #exportMenu button:last-child{ border-bottom:none; }
+  #exportMenu button:hover{ background:var(--surface-3); color:var(--accent); }
+  #exportMenu .exm-hint{
+    padding:8px 12px; font-size:10.5px; color:var(--muted); border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono', monospace; letter-spacing:0.3px;
+  }
   .btn:hover{ border-color:var(--accent); color:var(--accent); background:var(--surface-2);}
   .btn:active{ transform:translateY(1px); }
   .btn.primary{ background:var(--accent); color:#05201c; border-color:var(--accent); font-weight:600; }
@@ -492,7 +510,10 @@
   <div class="sep"></div>
   <button class="btn" id="btnNew">NEW</button>
   <button class="btn primary" id="btnSave">SAVE</button>
-  <button class="btn" id="btnExport">EXPORT</button>
+  <div id="exportWrap">
+    <button class="btn" id="btnExport">EXPORT ▾</button>
+    <div id="exportMenu"></div>
+  </div>
   <button class="btn" id="btnImport">IMPORT</button>
   <button class="btn" id="btnPng">IMAGE</button>
   <input type="file" id="fileInput" accept="application/json">
@@ -700,64 +721,73 @@
     };
   }
 
+  // Normalizes/migrates a raw state object (from localStorage OR an imported file)
+  // into the current internal shape. Used by load() and by the import flow so that
+  // any full backup exported from this app can always be re-imported correctly.
+  function normalizeState(parsed){
+    if(!parsed || typeof parsed !== 'object' || !parsed.mindmap) return defaultData();
+
+    if(!parsed.kanban) parsed.kanban = defaultData().kanban;
+
+    // Migrate old single kanban structure to new multi-project structure
+    if(parsed.kanban && !parsed.kanban.projects) {
+      const oldColumns = parsed.kanban.columns || [];
+      const oldCards = parsed.kanban.cards || [];
+      const defaultProjId = uid('p');
+      parsed.kanban = {
+        currentProjectId: defaultProjId,
+        projects: [
+          {
+            id: defaultProjId,
+            title: 'Trang tính1',
+            columns: oldColumns,
+            cards: oldCards
+          }
+        ]
+      };
+    }
+
+    // Migrate legacy mindmap nodes/view into project model
+    if(!parsed.mindmap.projects){
+      const oldNodes = parsed.mindmap.nodes || [];
+      const oldView = parsed.mindmap.view || {x: -2600, y: -1750, scale: 1};
+      const defaultProjId = uid('p');
+      parsed.mindmap = {
+        currentProjectId: defaultProjId,
+        projects: [
+          {
+            id: defaultProjId,
+            title: 'Bản đồ 1',
+            view: oldView,
+            nodes: oldNodes
+          }
+        ]
+      };
+    }
+
+    parsed.mindmap.projects = parsed.mindmap.projects.map(p => ({
+      id: p.id || uid('p'),
+      title: p.title || 'Bản đồ',
+      view: p.view || {x: -2600, y: -1750, scale: 1},
+      nodes: Array.isArray(p.nodes) ? p.nodes.map(n => ({ ...n, priority: n.priority || 5 })) : []
+    }));
+    if(!parsed.mindmap.currentProjectId || !parsed.mindmap.projects.some(p => p.id === parsed.mindmap.currentProjectId)) {
+      parsed.mindmap.currentProjectId = parsed.mindmap.projects[0].id;
+    }
+
+    if(!parsed.todo) parsed.todo = defaultData().todo;
+    if(!Array.isArray(parsed.todo.tasks)) parsed.todo.tasks = [];
+    if(!parsed.checkin) parsed.checkin = defaultData().checkin;
+    if(!parsed.checkin.entries) parsed.checkin.entries = {};
+    return parsed;
+  }
+
   function load(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       try{
         const parsed = JSON.parse(raw);
-        if(parsed.mindmap){
-          if(!parsed.kanban) parsed.kanban = defaultData().kanban;
-          
-          // Migrate old single kanban structure to new multi-project structure
-          if(parsed.kanban && !parsed.kanban.projects) {
-            const oldColumns = parsed.kanban.columns || [];
-            const oldCards = parsed.kanban.cards || [];
-            const defaultProjId = uid('p');
-            parsed.kanban = {
-              currentProjectId: defaultProjId,
-              projects: [
-                {
-                  id: defaultProjId,
-                  title: 'Trang tính1',
-                  columns: oldColumns,
-                  cards: oldCards
-                }
-              ]
-            };
-          }
-
-          // Migrate legacy mindmap nodes/view into project model
-          if(!parsed.mindmap.projects){
-            const oldNodes = parsed.mindmap.nodes || [];
-            const oldView = parsed.mindmap.view || {x: -2600, y: -1750, scale: 1};
-            const defaultProjId = uid('p');
-            parsed.mindmap = {
-              currentProjectId: defaultProjId,
-              projects: [
-                {
-                  id: defaultProjId,
-                  title: 'Bản đồ 1',
-                  view: oldView,
-                  nodes: oldNodes
-                }
-              ]
-            };
-          }
-
-          parsed.mindmap.projects = parsed.mindmap.projects.map(p => ({
-            id: p.id || uid('p'),
-            title: p.title || 'Bản đồ',
-            view: p.view || {x: -2600, y: -1750, scale: 1},
-            nodes: Array.isArray(p.nodes) ? p.nodes.map(n => ({ ...n, priority: n.priority || 5 })) : []
-          }));
-          if(!parsed.mindmap.currentProjectId || !parsed.mindmap.projects.some(p => p.id === parsed.mindmap.currentProjectId)) {
-            parsed.mindmap.currentProjectId = parsed.mindmap.projects[0].id;
-          }
-
-          if(!parsed.todo) parsed.todo = defaultData().todo;
-          if(!parsed.checkin) parsed.checkin = defaultData().checkin;
-          return parsed;
-        }
+        if(parsed.mindmap) return normalizeState(parsed);
       }catch(e){}
     }
     return defaultData();
@@ -773,6 +803,19 @@
       state.mindmap.currentProjectId = state.mindmap.projects[0].id;
     }
     return state.mindmap.projects.find(p=>p.id===state.mindmap.currentProjectId) || state.mindmap.projects[0];
+  }
+
+  function getCurrentKanbanProject(){
+    const kb = state.kanban;
+    if(!kb.projects || kb.projects.length===0){
+      const pid = uid('p');
+      kb.projects = [{ id: pid, title:'Trang tính1', columns:[{id:uid('c'),title:'To Do'},{id:uid('c'),title:'In Progress'},{id:uid('c'),title:'Done'}], cards:[] }];
+      kb.currentProjectId = pid;
+    }
+    if(!kb.currentProjectId || !kb.projects.some(p=>p.id===kb.currentProjectId)){
+      kb.currentProjectId = kb.projects[0].id;
+    }
+    return kb.projects.find(p=>p.id===kb.currentProjectId) || kb.projects[0];
   }
 
   function renderMapTabs(){
@@ -849,32 +892,36 @@
   }
 
   // ================= TABS =================
-  document.querySelectorAll('#tabs button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      activeTab = btn.dataset.tab;
-      document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b===btn));
-      viewport.style.display='none'; zoomctl.style.display='none';
-      kanbanView.style.display='none'; todoView.style.display='none'; checkinView.style.display='none';
-      toolbar.style.display='none';
+  function switchTab(tab){
+    activeTab = tab;
+    document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+    viewport.style.display='none'; zoomctl.style.display='none';
+    kanbanView.style.display='none'; todoView.style.display='none'; checkinView.style.display='none';
+    toolbar.style.display='none';
 
-      if(activeTab==='mindmap'){
-        viewport.style.display='block'; zoomctl.style.display='flex'; mapTabsBar.style.display='flex';
-        renderMapTabs();
-        positionToolbar();
-      } else if(activeTab==='kanban'){
-        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
-        kanbanView.style.display='flex';
-        renderKanban();
-      } else if(activeTab==='todo'){
-        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
-        todoView.style.display='block';
-        renderTodo();
-      } else if(activeTab==='checkin'){
-        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
-        checkinView.style.display='block';
-        renderCheckin();
-      }
-    });
+    if(activeTab==='mindmap'){
+      viewport.style.display='block'; zoomctl.style.display='flex'; mapTabsBar.style.display='flex';
+      applyView();
+      render();
+      renderMapTabs();
+      positionToolbar();
+    } else if(activeTab==='kanban'){
+      viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+      kanbanView.style.display='flex';
+      renderKanban();
+    } else if(activeTab==='todo'){
+      viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+      todoView.style.display='block';
+      renderTodo();
+    } else if(activeTab==='checkin'){
+      viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+      checkinView.style.display='block';
+      renderCheckin();
+    }
+  }
+
+  document.querySelectorAll('#tabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
   });
 
   // ================= MIND MAP =================
@@ -1871,14 +1918,258 @@
     }
   });
   document.getElementById('btnSave').addEventListener('click', ()=>{ save(); alert('Saved securely to internal browser memory.'); });
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const str = JSON.stringify(state, null, 2);
+
+  // ================= EXPORT (per-tab / per-item) =================
+  const TAB_LABELS = { mindmap:'MAP', kanban:'TRELLO', todo:'TODO', checkin:'CHECK' };
+
+  function slug(s){
+    return (s||'file').toString().trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'file';
+  }
+
+  function downloadJSON(obj, filename){
+    const str = JSON.stringify(obj, null, 2);
     const blob = new Blob([str], {type: "application/json"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'nodemap_project_export.json';
-    a.click(); URL.revokeObjectURL(url);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // Every export file is wrapped with app/exportType/version so it can always
+  // be recognized correctly on import, on this browser or any other one.
+  function makeExportWrapper(exportType, extra, data){
+    return Object.assign({
+      app: 'nodemap',
+      version: 2,
+      exportType: exportType,
+      exportedAt: new Date().toISOString()
+    }, extra, { data: data });
+  }
+
+  function exportFull(){
+    downloadJSON(makeExportWrapper('full', {}, state), 'nodemap_full_backup.json');
+  }
+
+  function exportTab(tab){
+    downloadJSON(
+      makeExportWrapper('tab', {tab: tab}, state[tab]),
+      `nodemap_${tab}_export.json`
+    );
+  }
+
+  function exportMapProject(){
+    const proj = getCurrentMapProject();
+    downloadJSON(
+      makeExportWrapper('mapProject', {}, proj),
+      `nodemap_map_${slug(proj.title)}.json`
+    );
+  }
+
+  function exportKanbanProject(){
+    const proj = getCurrentKanbanProject();
+    downloadJSON(
+      makeExportWrapper('kanbanProject', {}, proj),
+      `nodemap_trello_${slug(proj.title)}.json`
+    );
+  }
+
+  const btnExport = document.getElementById('btnExport');
+  const exportMenu = document.getElementById('exportMenu');
+
+  function closeExportMenu(){ exportMenu.classList.remove('open'); }
+
+  function buildExportMenu(){
+    exportMenu.innerHTML = '';
+
+    const hint = document.createElement('div');
+    hint.className = 'exm-hint';
+    hint.textContent = 'TAB HIỆN TẠI: ' + TAB_LABELS[activeTab];
+    exportMenu.appendChild(hint);
+
+    const items = [];
+
+    if(activeTab === 'mindmap'){
+      const proj = getCurrentMapProject();
+      items.push({ label: `Xuất sơ đồ đang mở: "${proj.title}"`, run: exportMapProject });
+      items.push({ label: 'Xuất toàn bộ tab MAP (tất cả sơ đồ)', run: ()=>exportTab('mindmap') });
+    } else if(activeTab === 'kanban'){
+      const proj = getCurrentKanbanProject();
+      items.push({ label: `Xuất bảng đang mở: "${proj.title}"`, run: exportKanbanProject });
+      items.push({ label: 'Xuất toàn bộ tab TRELLO (tất cả bảng)', run: ()=>exportTab('kanban') });
+    } else if(activeTab === 'todo'){
+      items.push({ label: 'Xuất toàn bộ tab TODO', run: ()=>exportTab('todo') });
+    } else if(activeTab === 'checkin'){
+      items.push({ label: 'Xuất toàn bộ tab CHECK', run: ()=>exportTab('checkin') });
+    }
+
+    items.push({ label: 'Xuất TOÀN BỘ dữ liệu (MAP + TRELLO + TODO + CHECK)', run: exportFull });
+
+    items.forEach(it=>{
+      const b = document.createElement('button');
+      b.textContent = it.label;
+      b.addEventListener('click', ()=>{ closeExportMenu(); it.run(); });
+      exportMenu.appendChild(b);
+    });
+  }
+
+  btnExport.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(exportMenu.classList.contains('open')){ closeExportMenu(); return; }
+    buildExportMenu();
+    exportMenu.classList.add('open');
   });
+  document.addEventListener('click', (e)=>{
+    if(!exportMenu.contains(e.target) && e.target!==btnExport) closeExportMenu();
+  });
+
+  // ================= IMPORT (auto-detects export type, merges safely) =================
+
+  // Clone a mind-map project's nodes with fresh IDs so importing the same
+  // project twice (or into a browser that already has data) never collides.
+  function cloneMapProject(proj, titleSuffix){
+    const idMap = {};
+    const newNodes = (proj.nodes||[]).map(n=>{
+      const nid = uid();
+      idMap[n.id] = nid;
+      return Object.assign({}, n, { id: nid });
+    });
+    newNodes.forEach(n=>{ if(n.parentId) n.parentId = idMap[n.parentId] || null; });
+    return {
+      id: uid('p'),
+      title: (proj.title || 'Bản đồ') + (titleSuffix || ''),
+      view: proj.view || {x:-2600, y:-1750, scale:1},
+      nodes: newNodes
+    };
+  }
+
+  function cloneKanbanProject(proj, titleSuffix){
+    const colMap = {};
+    const newColumns = (proj.columns||[]).map(c=>{
+      const nid = uid('c'); colMap[c.id] = nid;
+      return Object.assign({}, c, { id: nid });
+    });
+    const newCards = (proj.cards||[]).map(c=> Object.assign({}, c, {
+      id: uid('k'),
+      columnId: colMap[c.columnId] || (newColumns[0] && newColumns[0].id) || null
+    }));
+    return {
+      id: uid('p'),
+      title: (proj.title || 'Trang tính') + (titleSuffix || ''),
+      columns: newColumns,
+      cards: newCards
+    };
+  }
+
+  function importMapProject(proj, switchToIt){
+    const clone = cloneMapProject(proj, '');
+    state.mindmap.projects.push(clone);
+    state.mindmap.currentProjectId = clone.id;
+    if(switchToIt) switchTab('mindmap'); else { renderMapTabs(); }
+    return clone;
+  }
+
+  function importKanbanProject(proj, switchToIt){
+    const clone = cloneKanbanProject(proj, '');
+    state.kanban.projects.push(clone);
+    state.kanban.currentProjectId = clone.id;
+    if(switchToIt) switchTab('kanban'); else { renderKanban(); }
+    return clone;
+  }
+
+  function importTodoTasks(todoData){
+    (todoData.tasks||[]).forEach(t=>{
+      state.todo.tasks.push(Object.assign({}, t, { id: uid('t') }));
+    });
+  }
+
+  function importCheckinEntries(checkinData){
+    const entries = checkinData.entries || {};
+    let overwriteAll = null; // null=ask each time, true/false=applied to all
+    Object.keys(entries).forEach(k=>{
+      if(state.checkin.entries[k]){
+        if(overwriteAll === null){
+          const choice = confirm(`Ngày ${k} đã có dữ liệu check-in. Nhấn OK để GHI ĐÈ toàn bộ các ngày trùng, Cancel để BỎ QUA toàn bộ các ngày trùng.`);
+          overwriteAll = choice;
+        }
+        if(!overwriteAll) return;
+      }
+      state.checkin.entries[k] = entries[k];
+    });
+  }
+
+  // Recognizes both wrapped exports (new format) and a raw full-state dump
+  // (old format / hand-edited files) so old export files still work too.
+  function unwrapImportFile(parsed){
+    if(parsed && parsed.app === 'nodemap' && parsed.exportType && 'data' in parsed){
+      return parsed;
+    }
+    if(parsed && parsed.mindmap){
+      return { exportType: 'full', data: parsed };
+    }
+    return null;
+  }
+
+  function runImport(parsed){
+    const wrapper = unwrapImportFile(parsed);
+    if(!wrapper){ alert('File này không đúng định dạng của Nodemap.'); return; }
+
+    switch(wrapper.exportType){
+      case 'full': {
+        if(!confirm('File này là BẢN SAO LƯU TOÀN BỘ. Import sẽ THAY THẾ toàn bộ dữ liệu hiện tại (MAP, TRELLO, TODO, CHECK). Tiếp tục?')) return;
+        state = normalizeState(wrapper.data);
+        save(); selectNode(null); switchTab('mindmap');
+        alert('Đã import toàn bộ dữ liệu thành công.');
+        break;
+      }
+      case 'tab': {
+        const tab = wrapper.tab;
+        if(tab === 'mindmap'){
+          const projects = (wrapper.data && wrapper.data.projects) || [];
+          projects.forEach(p => state.mindmap.projects.push(cloneMapProject(p, '')));
+          if(projects.length) state.mindmap.currentProjectId = state.mindmap.projects[state.mindmap.projects.length-1].id;
+          save(); switchTab('mindmap');
+          alert(`Đã thêm ${projects.length} sơ đồ vào tab MAP.`);
+        } else if(tab === 'kanban'){
+          const projects = (wrapper.data && wrapper.data.projects) || [];
+          projects.forEach(p => state.kanban.projects.push(cloneKanbanProject(p, '')));
+          if(projects.length) state.kanban.currentProjectId = state.kanban.projects[state.kanban.projects.length-1].id;
+          save(); switchTab('kanban');
+          alert(`Đã thêm ${projects.length} bảng vào tab TRELLO.`);
+        } else if(tab === 'todo'){
+          importTodoTasks(wrapper.data || {});
+          save(); switchTab('todo');
+          alert('Đã thêm dữ liệu vào tab TODO.');
+        } else if(tab === 'checkin'){
+          importCheckinEntries(wrapper.data || {});
+          save(); switchTab('checkin');
+          alert('Đã cập nhật dữ liệu tab CHECK.');
+        } else {
+          alert('Không nhận diện được loại tab trong file.');
+        }
+        break;
+      }
+      case 'mapProject': {
+        if(!wrapper.data){ alert('File sơ đồ không hợp lệ.'); return; }
+        const clone = importMapProject(wrapper.data, true);
+        save();
+        alert(`Đã thêm sơ đồ "${clone.title}" vào tab MAP.`);
+        break;
+      }
+      case 'kanbanProject': {
+        if(!wrapper.data){ alert('File bảng Trello không hợp lệ.'); return; }
+        const clone = importKanbanProject(wrapper.data, true);
+        save();
+        alert(`Đã thêm bảng "${clone.title}" vào tab TRELLO.`);
+        break;
+      }
+      default:
+        alert('Không nhận diện được loại file.');
+    }
+  }
+
   document.getElementById('btnImport').addEventListener('click', ()=>{ document.getElementById('fileInput').click(); });
   document.getElementById('fileInput').addEventListener('change', (e)=>{
     const file = e.target.files[0];
@@ -1887,11 +2178,8 @@
     reader.onload = (evt)=>{
       try{
         const parsed = JSON.parse(evt.target.result);
-        if(parsed.mindmap && parsed.mindmap.nodes){
-          state = parsed; save(); selectNode(null); render();
-          alert('Project imported successfully.');
-        } else { alert('Invalid structural data inside JSON.'); }
-      }catch(err){ alert('Error parsing file.'); }
+        runImport(parsed);
+      }catch(err){ alert('Lỗi đọc file JSON. File có thể bị hỏng.'); }
     };
     reader.readAsText(file);
     e.target.value = '';
