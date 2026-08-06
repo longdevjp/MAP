@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nodemap — Mind Map &amp; Project Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0e15;
+    --surface:#111823;
+    --surface-2:#161f2c;
+    --surface-3:#1c2734;
+    --line:#22303f;
+    --text:#e7edf3;
+    --muted:#6f8195;
+    --accent:#00e0c7;
+    --accent-dim:#00e0c733;
+    --c0:#00e0c7;
+    --c1:#7c9cff;
+    --c2:#ff9d5c;
+    --c3:#ff5c9d;
+    --radius:0px; /* Force sharp square boxes */
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:
+      radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg);
+    color:var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    overflow:hidden;
+  }
+  /* Top bar */
+  #topbar{
+    position:fixed; top:0; left:0; right:0; height:56px; z-index:50;
+    display:flex; align-items:center; gap:8px;
+    padding:0 14px;
+    background:rgba(10,14,21,0.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  #logo{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700; letter-spacing:0.5px; font-size:16px;
+    color:var(--accent);
+    margin-right:6px; white-space:nowrap;
+  }
+  #logo span{color:var(--muted); font-weight:400;}
+  .btn{
+    display:flex; align-items:center; gap:6px;
+    background:var(--surface); color:var(--text);
+    border:1px solid var(--line); border-radius:0px; /* Sharp corners */
+    padding:8px 12px; font-size:13px; font-family:inherit;
+    cursor:pointer; transition:all .15s ease; white-space:nowrap;
+  }
+  .btn:hover{ border-color:var(--accent); color:var(--accent); background:var(--surface-2);}
+  .btn:active{ transform:translateY(1px); }
+  .btn.primary{ background:var(--accent); color:#05201c; border-color:var(--accent); font-weight:600; }
+  .btn.primary:hover{ filter:brightness(1.1); color:#05201c; }
+  .btn.danger:hover{ border-color:#ff5c7a; color:#ff5c7a; }
+  .sep{ width:1px; height:24px; background:var(--line); margin:0 4px; }
+  #spacer{ flex:1; }
+  #status{
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted);
+    margin-right:6px;
+  }
+  input[type=file]{ display:none; }
+
+  /* Tabs */
+  #tabs{
+    display:flex; gap:4px; background:var(--surface); border:1px solid var(--line);
+    border-radius:0px; padding:3px; margin-right:6px;
+  }
+  #tabs button{
+    border:none; background:transparent; color:var(--muted);
+    font-family:inherit; font-size:13px; padding:7px 14px; border-radius:0px;
+    cursor:pointer; display:flex; align-items:center; gap:6px; transition:all .15s ease;
+  }
+  #tabs button.active{ background:var(--accent); color:#05201c; font-weight:600; }
+  #tabs button:not(.active):hover{ color:var(--text); background:var(--surface-2); }
+
+  /* Canvas (mind map) */
+  #viewport{
+    position:absolute; top:56px; left:0; right:0; bottom:0;
+    overflow:hidden; cursor:grab;
+  }
+  #viewport.panning{ cursor:grabbing; }
+  #world{
+    position:absolute; top:0; left:0;
+    transform-origin:0 0;
+    width:6000px; height:4000px;
+  }
+  svg#lines{ position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
+  .lnk{ fill:none; stroke-width:2; opacity:0.85; }
+
+  .node{
+    position:absolute;
+    min-width:120px; max-width:280px;
+    background:var(--surface);
+    border:2.5px solid var(--line); /* Stronger bordered structure */
+    border-radius:0px !important;  /* Strict square box */
+    line-height:1.35;
+    color:var(--text);
+    cursor:grab;
+    user-select:none;
+    box-shadow:none !important; /* Completely removed glow and shadow */
+    transition:border-color .12s ease;
+  }
+  .node:active{ cursor:grabbing; }
+  .node.editing{ cursor:text; }
+  .node.selected{
+    border-color:var(--node-color, var(--accent)) !important;
+  }
+  .node .dot{
+    position:absolute; left:-1.5px; top:50%; width:6px; height:6px;
+    background:var(--node-color, var(--accent));
+    border-radius:0px; /* Square anchor dot */
+    transform:translate(-50%,-50%);
+    box-shadow:none !important; /* Removed anchor glow */
+  }
+  .node .badge{
+    position:absolute; top:-9px; right:-9px; min-width:18px; height:18px;
+    border-radius:0px; /* Square badge */
+    background:var(--node-color, var(--accent)); color:#05131a;
+    font-family:'JetBrains Mono', monospace; font-size:10px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; padding:0 4px;
+    box-shadow:none !important; /* Removed badge shadow */
+    border:1px solid var(--line);
+  }
+  .node[contenteditable="true"]{ outline:none; }
+
+  /* floating toolbar attached to selected node */
+  #nodeToolbar{
+    position:absolute; display:none; flex-direction:column; gap:6px;
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:0px; padding:8px; z-index:40;
+    box-shadow:none;
+  }
+  #nodeToolbar .row{ display:flex; align-items:center; gap:4px; }
+  #nodeToolbar button.icon{
+    width:28px; height:28px; border:none; border-radius:0px;
+    background:transparent; color:var(--muted); cursor:pointer;
+    font-size:14px; display:flex; align-items:center; justify-content:center;
+  }
+  #nodeToolbar button.icon:hover{ background:var(--surface); color:var(--accent); }
+  #nodeToolbar button.del:hover{ color:#ff5c7a; }
+  #nodeToolbar .swatch{
+    width:16px; height:16px; border-radius:0px; cursor:pointer; border:2px solid transparent;
+  }
+  #nodeToolbar .swatch.active{ border-color:var(--text); }
+  #nodeToolbar .prlabel{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);
+    padding:0 4px; white-space:nowrap;
+  }
+  #nodeToolbar .prval{
+    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--text);
+    width:20px; text-align:center;
+  }
+
+  /* zoom controls */
+  #zoomctl{
+    display:none !important;
+    position:fixed; right:16px; bottom:16px; z-index:45;
+    flex-direction:column; gap:6px;
+    background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:6px;
+  }
+  #zoomctl button{
+    width:32px; height:32px; border:none; background:transparent; color:var(--text);
+    font-size:16px; cursor:pointer; border-radius:0px;
+  }
+  #zoomctl button:hover{ background:var(--surface-2); color:var(--accent); }
+  #zoomlabel{ text-align:center; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); padding:2px 0;}
+
+  /* Kanban */
+  #kanbanView{
+    position:absolute; top:56px; left:0; right:0; bottom:0;
+    display:none; flex-direction:column;
+  }
+  #kanbanMain{
+    flex:1; overflow-x:auto; overflow-y:hidden; padding:22px 22px 10px 22px;
+  }
+  #kanbanTrack{
+    display:flex; gap:16px; height:100%; align-items:flex-start;
+  }
+  .kcol{
+    width:280px; min-width:280px; max-height:100%;
+    background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .kcol-head{
+    display:flex; align-items:center; gap:6px; padding:12px 12px 8px 12px;
+  }
+  .kcol-dot{ width:8px; height:8px; border-radius:0px; background:var(--accent); flex-shrink:0; }
+  .kcol-title{
+    flex:1; font-weight:600; font-size:14px; background:transparent; border:none;
+    color:var(--text); font-family:inherit; outline:none; border-radius:0px; padding:2px 4px;
+  }
+  .kcol-title:focus{ background:var(--surface-2); }
+  .kcol-count{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted);
+    background:var(--surface-2); padding:2px 7px; border-radius:0px;
+  }
+  .kcol-del{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:4px;
+    border-radius:0px;
+  }
+  .kcol-del:hover{ color:#ff5c7a; background:var(--surface-2); }
+  .kcol-body{
+    flex:1; overflow-y:auto; padding:4px 10px 10px 10px; display:flex; flex-direction:column; gap:8px;
+    min-height:40px;
+  }
+  .kcard{
+    background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--card-color, var(--accent));
+    border-radius:0px; padding:10px 12px; font-size:13px; cursor:grab;
+    box-shadow:none; position:relative;
+  }
+  .kcard.dragging{ opacity:0.3; }
+  .kcard .ktext{ outline:none; word-break:break-word; }
+  .kcard .kcard-actions{
+    display:flex; gap:4px; margin-top:8px; opacity:0; transition:opacity .12s ease;
+  }
+  .kcard:hover .kcard-actions{ opacity:1; }
+  .kcard .kswatch{ width:12px; height:12px; border-radius:0px; cursor:pointer; border:1.5px solid transparent; }
+  .kcard .kswatch.active{ border-color:var(--text); }
+  .kcard .kdel{
+    margin-left:auto; background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px;
+  }
+  .kcard .kdel:hover{ color:#ff5c7a; }
+  .kcard-drop-line{ height:3px; background:var(--accent); border-radius:0px; margin:-4px 0; }
+  .kcol-addcard{
+    margin:6px 10px 12px 10px; background:transparent; border:1px dashed var(--line); color:var(--muted);
+    border-radius:0px; padding:8px; font-size:12px; cursor:pointer; font-family:inherit;
+  }
+  .kcol-addcard:hover{ border-color:var(--accent); color:var(--accent); }
+  #kanbanAddCol{
+    width:220px; min-width:220px; height:44px; align-self:flex-start;
+    background:var(--surface); border:1px dashed var(--line); border-radius:0px;
+    color:var(--muted); font-family:inherit; font-size:13px; cursor:pointer;
+  }
+  #kanbanAddCol:hover{ border-color:var(--accent); color:var(--accent); }
+
+  /* Kanban Excel-Style Project Managing Tabs */
+  #kanbanTabsBar{
+    height:40px; background:var(--surface); border-top:1px solid var(--line);
+    display:flex; align-items:center; padding:0 12px; gap:2px; z-index:10;
+  }
+  .kproj-add{
+    background:transparent; border:none; color:var(--text); font-size:18px; font-weight:600;
+    cursor:pointer; padding:0 12px; height:100%; display:flex; align-items:center; justify-content:center;
+    transition:all 0.15s ease;
+  }
+  .kproj-add:hover{ color:var(--accent); background:var(--surface-2); }
+  .kproj-tab{
+    height:100%; display:flex; align-items:center; gap:8px; padding:0 16px;
+    background:var(--surface-2); border-right:1px solid var(--line); color:var(--muted);
+    font-size:13px; font-weight:500; cursor:pointer; user-select:none; transition:all 0.15s ease;
+    position:relative;
+  }
+  .kproj-tab.active{
+    background:var(--bg); color:var(--accent); font-weight:600;
+    box-shadow: inset 0 -2px 0 0 var(--accent);
+  }
+  .kproj-tab:not(.active):hover{
+    background:var(--surface-3); color:var(--text);
+  }
+  .kproj-del-btn{
+    background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer;
+    padding:2px; display:flex; align-items:center; justify-content:center;
+  }
+  .kproj-del-btn:hover{ color:#ff5c7a !important; }
+
+  /* Mind Map Project Tabs */
+  #mapTabsBar{
+    position:fixed; left:0; right:0; bottom:0; height:40px;
+    background:var(--surface); border-top:1px solid var(--line);
+    display:none; align-items:center; padding:0 12px; gap:2px; z-index:45;
+  }
+  .mproj-add{
+    background:transparent; border:none; color:var(--text); font-size:18px; font-weight:600;
+    cursor:pointer; padding:0 12px; height:100%; display:flex; align-items:center; justify-content:center;
+    transition:all 0.15s ease;
+  }
+  .mproj-add:hover{ color:var(--accent); background:var(--surface-2); }
+  .mproj-tab{
+    height:100%; display:flex; align-items:center; gap:8px; padding:0 16px;
+    background:var(--surface-2); border-right:1px solid var(--line); color:var(--muted);
+    font-size:13px; font-weight:500; cursor:pointer; user-select:none; transition:all 0.15s ease;
+    position:relative;
+  }
+  .mproj-tab.active{
+    background:var(--bg); color:var(--accent); font-weight:600;
+    box-shadow: inset 0 -2px 0 0 var(--accent);
+  }
+  .mproj-tab:not(.active):hover{
+    background:var(--surface-3); color:var(--text);
+  }
+  .mproj-del-btn{
+    background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer;
+    padding:2px; display:flex; align-items:center; justify-content:center;
+  }
+  .mproj-del-btn:hover{ color:#ff5c7a !important; }
+
+  /* Todo List */
+  #todoView{
+    position:absolute; top:56px; left:0; right:0; bottom:0;
+    display:none; overflow-y:auto; padding:32px 22px;
+  }
+  #todoPanel{ max-width:760px; margin:0 auto; }
+  #todoHeader{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  #todoHeader h2{ font-size:20px; margin:0; font-weight:700; }
+  #todoProgressWrap{ display:flex; align-items:center; gap:10px; min-width:220px; }
+  #todoProgressBar{ width:140px; height:8px; background:var(--surface-2); border-radius:0px; overflow:hidden; border:1px solid var(--line); }
+  #todoProgressFill{ height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #7c9cff); transition:width .25s ease; }
+  #todoProgressLabel{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); white-space:nowrap; }
+
+  #todoAddRow{
+    display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  #todoInput{
+    flex:1; min-width:200px; background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); font-family:inherit; font-size:14px; padding:11px 14px; outline:none;
+  }
+  #todoInput:focus{ border-color:var(--accent); }
+  #todoPriority, #todoDue{
+    background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); font-family:inherit; font-size:13px; padding:10px; outline:none;
+  }
+  #todoFilters{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .tf{
+    background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:0px;
+    padding:6px 14px; font-family:inherit; font-size:12px; cursor:pointer;
+  }
+  .tf.active{ background:var(--accent); color:#05201c; border-color:var(--accent); font-weight:600; }
+  .tf:not(.active):hover{ color:var(--text); border-color:var(--accent); }
+  #spacer2{ flex:1; }
+
+  #todoList{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .titem{
+    display:flex; align-items:center; gap:12px;
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--pr-color, var(--accent));
+    border-radius:0px; padding:12px 14px;
+  }
+  .titem.done{ opacity:0.5; }
+  .titem.done .ttext{ text-decoration:line-through; }
+  .tcheck{
+    width:20px; height:20px; border-radius:0px; border:2px solid var(--pr-color, var(--accent));
+    flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    background:transparent; color:var(--pr-color, var(--accent)); font-size:12px;
+  }
+  .titem.done .tcheck{ background:var(--pr-color, var(--accent)); color:#05131a; }
+  .tbody{ flex:1; min-width:0; }
+  .ttext{
+    font-size:14px; outline:none; word-break:break-word;
+  }
+  .tmeta{ display:flex; gap:10px; margin-top:4px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  .tmeta .tdue.overdue{ color:#ff5c7a; }
+  .tpr-tag{
+    font-size:10px; padding:1px 7px; border-radius:0px; border:1px solid var(--pr-color, var(--accent)); color:var(--pr-color, var(--accent));
+  }
+  .titem .tdel{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:4px; border-radius:0px; flex-shrink:0;
+  }
+  .titem .tdel:hover{ color:#ff5c7a; background:var(--surface-2); }
+  #todoEmpty{
+    display:none; text-align:center; color:var(--muted); font-size:13px; padding:40px 10px;
+    border:1px dashed var(--line); border-radius:0px; margin-top:8px;
+  }
+
+  /* Daily Check-in */
+  #checkinView{
+    position:absolute; top:56px; left:0; right:0; bottom:0;
+    display:none; overflow-y:auto; padding:32px 22px;
+  }
+  #checkinPanel{ max-width:860px; margin:0 auto; }
+  #checkinHeader{ display:flex; align-items:center; justify-content:flex-start; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+  #checkinHeader h2{ display:none; font-size:18px; margin:0; font-weight:700; font-family:'JetBrains Mono', monospace; letter-spacing:0.5px; }
+  #checkinStats{ display:flex; gap:10px; flex-wrap:wrap; margin-left:0; }
+  .cstat{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:10px 18px; min-width:96px;
+  }
+  .cstat-val{ font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:700; color:var(--accent); }
+  .cstat-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--muted); letter-spacing:0.5px; margin-top:3px; text-align:center; }
+
+  #checkinQuote{
+    display:none !important;
+    background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0px;
+    padding:16px 18px; margin-bottom:20px; font-size:14px; color:var(--text); font-style:italic; line-height:1.6;
+  }
+
+  #checkinActionRow{ display:flex; gap:8px; margin-bottom:20px; margin-top:0px; flex-wrap:wrap; align-items:stretch; }
+  #checkinBtn{ flex-shrink:0; font-weight:700; }
+  #checkinBtn.done{ background:var(--surface-2); color:var(--accent); border-color:var(--accent); cursor:default; }
+  #checkinBtn.done:hover{ filter:none; background:var(--surface-2); color:var(--accent); }
+  #checkinNote{
+    flex:1; min-width:200px; background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); font-family:inherit; font-size:13px; padding:10px 14px; outline:none;
+  }
+  #checkinNote:focus{ border-color:var(--accent); }
+
+  #checkinYearNav{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  #checkinYearNav button{
+    width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); cursor:pointer; font-size:15px;
+  }
+  #checkinYearNav button:hover{ border-color:var(--accent); color:var(--accent); }
+  #checkinYearLabel{ font-family:'JetBrains Mono', monospace; font-size:15px; font-weight:700; color:var(--text); min-width:52px; text-align:center; }
+
+  #checkinYearGrid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:28px;
+  }
+  .cmonth{
+    background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:12px;
+  }
+  .cmonth-title{
+    font-family:'JetBrains Mono', monospace; font-size:12px; font-weight:700; color:var(--accent);
+    letter-spacing:0.5px; margin-bottom:8px; text-transform:uppercase;
+  }
+  .cmonth-weekdays{
+    display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin-bottom:4px;
+  }
+  .cmonth-weekdays span{
+    font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--muted); text-align:center;
+  }
+  .cmonth-days{
+    display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;
+  }
+  .cday{
+    position:relative; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); border:1px solid var(--line); border-radius:0px;
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted);
+    cursor:pointer; user-select:none;
+  }
+  .cday.blank{ background:transparent; border:none; cursor:default; }
+  .cday:not(.blank):hover{ border-color:var(--accent); color:var(--text); }
+  .cday.filled{ background:var(--accent); border-color:var(--accent); color:#05201c; font-weight:700; }
+  .cday.today{ box-shadow:0 0 0 1.5px var(--text) inset; }
+  .cday.future{ opacity:0.45; }
+
+  #checkinLogHeader{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted); letter-spacing:0.5px; margin-bottom:10px; display:none !important; }
+  #checkinLog{ list-style:none; margin:0; padding:0; display:none !important; flex-direction:column; gap:8px; }
+  .clog-item{
+    display:flex; align-items:baseline; gap:14px;
+    background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0px;
+    padding:10px 14px; font-size:13px;
+  }
+  .clog-date{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--accent); flex-shrink:0; min-width:96px; }
+  .clog-note{ color:var(--text); word-break:break-word; }
+  .clog-note.empty{ color:var(--muted); font-style:italic; }
+  #checkinEmpty{
+    display:none !important; text-align:center; color:var(--muted); font-size:13px; padding:40px 10px;
+    border:1px dashed var(--line); border-radius:0px; margin-top:8px;
+  }
+
+  /* Day entry modal */
+  #checkinModalOverlay{
+    display:none; position:fixed; inset:0; background:rgba(5,7,12,0.72); z-index:60;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #checkinModalOverlay.open{ display:flex; }
+  #checkinModalBox{
+    background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    width:100%; max-width:440px; padding:22px;
+  }
+  #checkinModalTitle{
+    font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:700; color:var(--accent);
+    margin-bottom:14px; letter-spacing:0.5px;
+  }
+  #checkinModalNote{
+    width:100%; min-height:110px; background:var(--bg); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); font-family:inherit; font-size:13px; padding:12px; outline:none; resize:vertical;
+    margin-bottom:16px;
+  }
+  #checkinModalNote:focus{ border-color:var(--accent); }
+  #checkinModalActions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="logo">NODEMAP</div>
+  <div id="tabs">
+    <button class="active" data-tab="mindmap">MAP</button>
+    <button data-tab="kanban">TRELLO</button>
+    <button data-tab="todo">TODO</button>
+    <button data-tab="checkin">CHECK</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn" id="btnNew">NEW</button>
+  <button class="btn primary" id="btnSave">SAVE</button>
+  <button class="btn" id="btnExport">EXPORT</button>
+  <button class="btn" id="btnImport">IMPORT</button>
+  <button class="btn" id="btnPng">IMAGE</button>
+  <input type="file" id="fileInput" accept="application/json">
+  <div id="spacer"></div>
+  <span id="status">SAVED</span>
+</div>
+
+<div id="viewport">
+  <div id="world">
+    <svg id="lines" width="6000" height="4000"></svg>
+  </div>
+</div>
+
+<div id="mapTabsBar"></div>
+
+<div id="kanbanView">
+  <div id="kanbanMain">
+    <div id="kanbanTrack"></div>
+  </div>
+  <div id="kanbanTabsBar"></div>
+</div>
+
+<div id="todoView">
+  <div id="todoPanel">
+    <div id="todoHeader">
+      <h2>TASK</h2>
+      <div id="todoProgressWrap">
+        <div id="todoProgressBar"><div id="todoProgressFill"></div></div>
+        <span id="todoProgressLabel">0/0 completed</span>
+      </div>
+    </div>
+
+    <div id="todoAddRow">
+      <input type="text" id="todoInput" placeholder="">
+      <select id="todoPriority" title="Priority">
+        <option value="1">HIGHT</option>
+        <option value="2" selected>MEDIUM</option>
+        <option value="3">LOW</option>
+      </select>
+      <input type="date" id="todoDue" title="Due Date (Optional)">
+      <button class="btn primary" id="todoAddBtn">ADD</button>
+    </div>
+
+    <div id="todoFilters">
+      <button class="tf active" data-filter="all">All</button>
+      <button class="tf" data-filter="active">Active</button>
+      <button class="tf" data-filter="done">Completed</button>
+      <div id="spacer2"></div>
+      <button class="btn" id="todoClearDone">CLEAR COMPLETED</button>
+    </div>
+
+    <ul id="todoList"></ul>
+    <div id="todoEmpty">No tasks yet. Add your first task above.</div>
+  </div>
+</div>
+
+<div id="checkinView">
+  <div id="checkinPanel">
+    <div id="checkinActionRow">
+      <button class="btn primary" id="checkinBtn">CHECK IN HÔM NAY</button>
+    </div>
+
+    <div id="checkinHeader">
+      <div id="checkinStats">
+        <div class="cstat"><span class="cstat-val" id="curStreak">0</div>
+        <div class="cstat"><span class="cstat-val" id="bestStreak">0</div>
+        <div class="cstat"><span class="cstat-val" id="totalCheckins">0</div>
+      </div>
+    </div>
+
+    <div id="checkinQuote"></div>
+
+    <div id="checkinYearNav">
+      <button id="checkinYearPrev">‹</button>
+      <span id="checkinYearLabel">2026</span>
+      <button id="checkinYearNext">›</button>
+    </div>
+
+    <div id="checkinYearGrid"></div>
+
+    <div id="checkinLogHeader">HISTORY</div>
+    <ul id="checkinLog"></ul>
+    <div id="checkinEmpty"></div>
+  </div>
+</div>
+
+<div id="checkinModalOverlay">
+  <div id="checkinModalBox">
+    <div id="checkinModalTitle"></div>
+    <textarea id="checkinModalNote" placeholder=""></textarea>
+    <div id="checkinModalActions">
+      <button class="btn" id="checkinModalRemove">REMOVE CHECK</button>
+      <div style="flex:1"></div>
+      <button class="btn" id="checkinModalCancel">CLOSE</button>
+      <button class="btn primary" id="checkinModalSave">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<div id="nodeToolbar">
+  <div class="row">
+    <span class="swatch" data-c="0" style="background:#00e0c7"></span>
+    <span class="swatch" data-c="1" style="background:#7c9cff"></span>
+    <span class="swatch" data-c="2" style="background:#ff9d5c"></span>
+    <span class="swatch" data-c="3" style="background:#ff5c9d"></span>
+    <span style="width:1px;height:18px;background:var(--line);margin:0 2px;"></span>
+    <button class="icon" title="Add Child" id="tbAdd">+</button>
+    <button class="icon" title="Edit Text" id="tbEdit">Edt</button>
+    <button class="icon del" title="Delete" id="tbDel" style="margin-left: 10px;">Del</button>
+  </div>
+  <div class="row">
+    <span class="prlabel">Priority (1=highest)</span>
+    <button class="icon" id="prMinus">-</button>
+    <span class="prval" id="prVal">5</span>
+    <button class="icon" id="prPlus">+</button>
+  </div>
+</div>
+
+<div id="zoomctl">
+  <button id="zoomIn">+</button>
+  <div id="zoomlabel">100%</div>
+  <button id="zoomOut">-</button>
+  <button id="zoomReset" title="Reset View">Reset</button>
+</div>
+
+<script>
+(function(){
+  const COLORS = ['#00e0c7','#7c9cff','#ff9d5c','#ff5c9d'];
+  const STORAGE_KEY = 'nodemap_data_v2';
+
+  let state = null;
+  let selectedIds = new Set();
+  let activeTab = 'mindmap';
+  let idSeq = 1;
+
+  const world = document.getElementById('world');
+  const viewport = document.getElementById('viewport');
+  const svg = document.getElementById('lines');
+  const toolbar = document.getElementById('nodeToolbar');
+  const statusEl = document.getElementById('status');
+  const zoomLabel = document.getElementById('zoomlabel');
+  const mapTabsBar = document.getElementById('mapTabsBar');
+  const kanbanView = document.getElementById('kanbanView');
+  const kanbanTrack = document.getElementById('kanbanTrack');
+  const todoView = document.getElementById('todoView');
+  const todoList = document.getElementById('todoList');
+  const todoEmpty = document.getElementById('todoEmpty');
+  let todoFilter = 'all';
+  const zoomctl = document.getElementById('zoomctl');
+  const checkinView = document.getElementById('checkinView');
+  const checkinLog = document.getElementById('checkinLog');
+  const checkinEmpty = document.getElementById('checkinEmpty');
+  let checkinYear = new Date().getFullYear();
+  let checkinModalKey = null;
+
+  function uid(prefix){ return (prefix||'n') + (idSeq++) + '_' + Math.random().toString(36).slice(2,7); }
+
+  function getSingleSelected(){ return selectedIds.size===1 ? [...selectedIds][0] : null; }
+
+  function getSubtreeIds(rootId, nodes){
+    const result = new Set([rootId]);
+    let changed = true;
+    while(changed){
+      changed = false;
+      nodes.forEach(n=>{
+        if(n.parentId && result.has(n.parentId) && !result.has(n.id)){
+          result.add(n.id); changed = true;
+        }
+      });
+    }
+    return result;
+  }
+
+  function defaultData(){
+    const defaultProjId = uid('p');
+    return {
+      mindmap: {
+        currentProjectId: defaultProjId,
+        projects: [
+          {
+            id: defaultProjId,
+            title: 'Bản đồ 1',
+            view: {x: -2600, y: -1750, scale: 1},
+            nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }]
+          }
+        ]
+      },
+      kanban: {
+        currentProjectId: defaultProjId,
+        projects: [
+          {
+            id: defaultProjId,
+            title: 'Trang tính1',
+            columns: [
+              {id: uid('c'), title:'To Do'},
+              {id: uid('c'), title:'In Progress'},
+              {id: uid('c'), title:'Done'}
+            ],
+            cards: []
+          }
+        ]
+      },
+      todo: { tasks: [] },
+      checkin: { entries: {} }
+    };
+  }
+
+  function load(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      try{
+        const parsed = JSON.parse(raw);
+        if(parsed.mindmap){
+          if(!parsed.kanban) parsed.kanban = defaultData().kanban;
+          
+          // Migrate old single kanban structure to new multi-project structure
+          if(parsed.kanban && !parsed.kanban.projects) {
+            const oldColumns = parsed.kanban.columns || [];
+            const oldCards = parsed.kanban.cards || [];
+            const defaultProjId = uid('p');
+            parsed.kanban = {
+              currentProjectId: defaultProjId,
+              projects: [
+                {
+                  id: defaultProjId,
+                  title: 'Trang tính1',
+                  columns: oldColumns,
+                  cards: oldCards
+                }
+              ]
+            };
+          }
+
+          // Migrate legacy mindmap nodes/view into project model
+          if(!parsed.mindmap.projects){
+            const oldNodes = parsed.mindmap.nodes || [];
+            const oldView = parsed.mindmap.view || {x: -2600, y: -1750, scale: 1};
+            const defaultProjId = uid('p');
+            parsed.mindmap = {
+              currentProjectId: defaultProjId,
+              projects: [
+                {
+                  id: defaultProjId,
+                  title: 'Bản đồ 1',
+                  view: oldView,
+                  nodes: oldNodes
+                }
+              ]
+            };
+          }
+
+          parsed.mindmap.projects = parsed.mindmap.projects.map(p => ({
+            id: p.id || uid('p'),
+            title: p.title || 'Bản đồ',
+            view: p.view || {x: -2600, y: -1750, scale: 1},
+            nodes: Array.isArray(p.nodes) ? p.nodes.map(n => ({ ...n, priority: n.priority || 5 })) : []
+          }));
+          if(!parsed.mindmap.currentProjectId || !parsed.mindmap.projects.some(p => p.id === parsed.mindmap.currentProjectId)) {
+            parsed.mindmap.currentProjectId = parsed.mindmap.projects[0].id;
+          }
+
+          if(!parsed.todo) parsed.todo = defaultData().todo;
+          if(!parsed.checkin) parsed.checkin = defaultData().checkin;
+          return parsed;
+        }
+      }catch(e){}
+    }
+    return defaultData();
+  }
+
+  function getCurrentMapProject(){
+    if(!state.mindmap || !Array.isArray(state.mindmap.projects) || state.mindmap.projects.length===0){
+      const proj = { id: uid('p'), title:'Bản đồ 1', view:{x:-2600,y:-1750,scale:1}, nodes:[{id:uid(),x:2800,y:1900,text:'Central Idea',color:0,priority:5,parentId:null}] };
+      state.mindmap = { currentProjectId: proj.id, projects:[proj] };
+      return proj;
+    }
+    if(!state.mindmap.currentProjectId || !state.mindmap.projects.some(p=>p.id===state.mindmap.currentProjectId)){
+      state.mindmap.currentProjectId = state.mindmap.projects[0].id;
+    }
+    return state.mindmap.projects.find(p=>p.id===state.mindmap.currentProjectId) || state.mindmap.projects[0];
+  }
+
+  function renderMapTabs(){
+    const projBar = mapTabsBar;
+    const kp = getCurrentMapProject();
+    projBar.innerHTML = '';
+    projBar.style.display = activeTab==='mindmap' ? 'flex' : 'none';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'mproj-add';
+    addBtn.innerHTML = '+';
+    addBtn.title = 'Thêm sơ đồ tư duy mới';
+    addBtn.addEventListener('click', ()=>{
+      const nextIndex = state.mindmap.projects.length + 1;
+      const pid = uid('p');
+      state.mindmap.projects.push({
+        id: pid,
+        title: 'Bản đồ ' + nextIndex,
+        view: {x:-2600,y:-1750,scale:1},
+        nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }]
+      });
+      state.mindmap.currentProjectId = pid;
+      selectedIds.clear();
+      save(); render(); renderMapTabs();
+    });
+    projBar.appendChild(addBtn);
+
+    state.mindmap.projects.forEach(p => {
+      const tab = document.createElement('div');
+      tab.className = 'mproj-tab' + (p.id === state.mindmap.currentProjectId ? ' active' : '');
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = p.title;
+      titleSpan.title = 'Nhấp đúp để đổi tên';
+      titleSpan.addEventListener('click', ()=>{
+        state.mindmap.currentProjectId = p.id;
+        selectedIds.clear();
+        save(); render(); renderMapTabs();
+      });
+      titleSpan.addEventListener('dblclick', ()=>{
+        const newTitle = prompt('Nhập tên mới cho sơ đồ tư duy:', p.title);
+        if(newTitle && newTitle.trim()){
+          p.title = newTitle.trim();
+          save(); renderMapTabs();
+        }
+      });
+      tab.appendChild(titleSpan);
+      if(state.mindmap.projects.length > 1){
+        const delBtn = document.createElement('button');
+        delBtn.className = 'mproj-del-btn';
+        delBtn.innerHTML = '×';
+        delBtn.title = 'Xóa sơ đồ này';
+        delBtn.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          if(confirm(`Bạn có chắc muốn xóa sơ đồ tư duy "${p.title}"?`)){
+            state.mindmap.projects = state.mindmap.projects.filter(x=>x.id!==p.id);
+            if(state.mindmap.currentProjectId === p.id){
+              state.mindmap.currentProjectId = state.mindmap.projects[0].id;
+            }
+            selectedIds.clear();
+            save(); render(); renderMapTabs();
+          }
+        });
+        tab.appendChild(delBtn);
+      }
+      projBar.appendChild(tab);
+    });
+  }
+
+  function save(silent){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if(!silent){
+      statusEl.textContent = 'saved ' + new Date().toLocaleTimeString('en-US');
+    }
+  }
+
+  // ================= TABS =================
+  document.querySelectorAll('#tabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b===btn));
+      viewport.style.display='none'; zoomctl.style.display='none';
+      kanbanView.style.display='none'; todoView.style.display='none'; checkinView.style.display='none';
+      toolbar.style.display='none';
+
+      if(activeTab==='mindmap'){
+        viewport.style.display='block'; zoomctl.style.display='flex'; mapTabsBar.style.display='flex';
+        renderMapTabs();
+        positionToolbar();
+      } else if(activeTab==='kanban'){
+        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+        kanbanView.style.display='flex';
+        renderKanban();
+      } else if(activeTab==='todo'){
+        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+        todoView.style.display='block';
+        renderTodo();
+      } else if(activeTab==='checkin'){
+        viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+        checkinView.style.display='block';
+        renderCheckin();
+      }
+    });
+  });
+
+  // ================= MIND MAP =================
+  function applyView(){
+    const proj = getCurrentMapProject();
+    world.style.transform = `translate(${proj.view.x}px, ${proj.view.y}px) scale(${proj.view.scale})`;
+    zoomLabel.textContent = Math.round(proj.view.scale*100) + '%';
+  }
+
+  function depthOf(node){
+    let d=0, p=node;
+    const proj = getCurrentMapProject();
+    const map = Object.fromEntries(proj.nodes.map(n=>[n.id,n]));
+    while(p && p.parentId){ p = map[p.parentId]; d++; if(d>50) break; }
+    return d;
+  }
+
+  function importanceStyle(priority){
+    const imp = 11 - priority;
+    const scale = 1 + (imp-1)*0.055;
+    const fontSize = 13.5 * scale;
+    const padY = 9 * scale, padX = 13 * scale;
+    const borderW = 2.5 + (imp>=8 ? 1.5 : imp>=5 ? 0.5 : 0); /* Visible structured borders */
+    return { scale, fontSize, padY, padX, borderW, imp };
+  }
+
+  function render(){
+    const proj = getCurrentMapProject();
+    ([...world.querySelectorAll('.node')]).forEach(el=>el.remove());
+    svg.innerHTML = '';
+
+    const map = Object.fromEntries(proj.nodes.map(n=>[n.id,n]));
+
+    proj.nodes.forEach(n=>{
+      if(n.parentId && map[n.parentId]) drawLink(map[n.parentId], n);
+    });
+
+    proj.nodes.forEach(n=>{
+      const el = document.createElement('div');
+      el.className = 'node';
+      el.dataset.id = n.id;
+      el.style.left = n.x + 'px';
+      el.style.top = n.y + 'px';
+      const color = COLORS[n.color % COLORS.length];
+      el.style.setProperty('--node-color', color);
+      const st = importanceStyle(n.priority || 5);
+      el.style.fontSize = st.fontSize + 'px';
+      el.style.padding = st.padY + 'px ' + st.padX + 'px';
+      el.style.borderWidth = st.borderW + 'px';
+      if(st.imp >= 8) el.style.fontWeight = '600';
+      if(selectedIds.has(n.id)) el.classList.add('selected');
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      el.appendChild(dot);
+
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = n.priority || 5;
+      el.appendChild(badge);
+
+      const txt = document.createElement('div');
+      txt.className = 'txt';
+      txt.textContent = n.text;
+      el.appendChild(txt);
+
+      world.appendChild(el);
+      attachNodeEvents(el, n);
+    });
+
+    positionToolbar();
+  }
+
+  function nodeCenter(n){
+    const el = world.querySelector(`.node[data-id="${n.id}"]`);
+    const w = el ? el.offsetWidth : 140;
+    const h = el ? el.offsetHeight : 40;
+    return { x: n.x + w/2, y: n.y + h/2, w, h };
+  }
+
+  function drawLink(p, c){
+    const a = nodeCenter(p);
+    const b = nodeCenter(c);
+    const dx = Math.max(60, Math.abs(b.x-a.x)*0.5);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const d = `M ${a.x} ${a.y} C ${a.x+dx} ${a.y}, ${b.x-dx} ${b.y}, ${b.x} ${b.y}`;
+    path.setAttribute('d', d);
+    path.setAttribute('class','lnk');
+    const color = COLORS[c.color % COLORS.length];
+    path.setAttribute('stroke', color);
+    svg.appendChild(path);
+  }
+
+  let dragState = null;
+  let marqueeState = null;
+  let marqueeEl = null;
+
+  function attachNodeEvents(el, n){
+    el.addEventListener('mousedown', (e)=>{
+      if(el.classList.contains('editing')) return;
+      e.stopPropagation();
+
+      const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+      if(isModifier){
+        if(selectedIds.has(n.id)) selectedIds.delete(n.id);
+        else selectedIds.add(n.id);
+        render();
+        positionToolbar();
+        return;
+      }
+
+      if(!selectedIds.has(n.id)){
+        selectedIds = new Set([n.id]);
+      }
+      render();
+      positionToolbar();
+
+      const proj = getCurrentMapProject();
+      const moveSet = new Set();
+      selectedIds.forEach(id=>{
+        getSubtreeIds(id, proj.nodes).forEach(x=>moveSet.add(x));
+      });
+      const origPositions = {};
+      moveSet.forEach(id=>{
+        const nd = proj.nodes.find(x=>x.id===id);
+        if(nd) origPositions[id] = { x: nd.x, y: nd.y };
+      });
+
+      dragState = { startX: e.clientX, startY: e.clientY, origPositions };
+      window.addEventListener('mousemove', onNodeDrag);
+      window.addEventListener('mouseup', onNodeDragEnd);
+    });
+    el.addEventListener('dblclick', (e)=>{ e.stopPropagation(); editNode(n.id); });
+  }
+
+  function onNodeDrag(e){
+    if(!dragState) return;
+    const proj = getCurrentMapProject();
+    const dx = (e.clientX - dragState.startX) / proj.view.scale;
+    const dy = (e.clientY - dragState.startY) / proj.view.scale;
+    Object.keys(dragState.origPositions).forEach(id=>{
+      const nd = proj.nodes.find(x=>x.id===id);
+      if(!nd) return;
+      const orig = dragState.origPositions[id];
+      nd.x = orig.x + dx;
+      nd.y = orig.y + dy;
+      const el = world.querySelector(`.node[data-id="${id}"]`);
+      if(el){ el.style.left = nd.x+'px'; el.style.top = nd.y+'px'; }
+    });
+    redrawLinksOnly();
+    positionToolbar();
+  }
+  function onNodeDragEnd(){
+    dragState = null;
+    window.removeEventListener('mousemove', onNodeDrag);
+    window.removeEventListener('mouseup', onNodeDragEnd);
+    save();
+  }
+
+  function redrawLinksOnly(){
+    const proj = getCurrentMapProject();
+    svg.innerHTML = '';
+    const map = Object.fromEntries(proj.nodes.map(n=>[n.id,n]));
+    proj.nodes.forEach(n=>{
+      if(n.parentId && map[n.parentId]) drawLink(map[n.parentId], n);
+    });
+  }
+
+  function selectNode(id){
+    if(id===null || id===undefined) selectedIds = new Set();
+    else selectedIds = new Set([id]);
+    render();
+    positionToolbar();
+  }
+
+  function positionToolbar(){
+    const id = getSingleSelected();
+    if(!id || activeTab!=='mindmap'){ toolbar.style.display='none'; return; }
+    const proj = getCurrentMapProject();
+    const n = proj.nodes.find(x=>x.id===id);
+    if(!n){ toolbar.style.display='none'; return; }
+    const el = world.querySelector(`.node[data-id="${n.id}"]`);
+    if(!el){ toolbar.style.display='none'; return; }
+    const vpRect = viewport.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    toolbar.style.display = 'flex';
+    toolbar.style.left = (elRect.left - vpRect.left + elRect.width/2 - toolbar.offsetWidth/2) + 'px';
+    toolbar.style.top = (elRect.top - vpRect.top - toolbar.offsetHeight - 10) + 'px';
+
+    ([...toolbar.querySelectorAll('.swatch')]).forEach(s=>{
+      s.classList.toggle('active', Number(s.dataset.c)===n.color);
+    });
+    document.getElementById('prVal').textContent = n.priority || 5;
+  }
+
+  function editNode(id){
+    const proj = getCurrentMapProject();
+    const n = proj.nodes.find(x=>x.id===id);
+    const el = world.querySelector(`.node[data-id="${id}"] .txt`);
+    if(!n || !el) return;
+    const parentEl = el.parentElement;
+    parentEl.classList.add('editing');
+    el.contentEditable = 'true';
+    el.focus();
+    document.execCommand('selectAll', false, null);
+
+    function finish(){
+      n.text = el.textContent.trim() || 'No Content';
+      el.textContent = n.text;
+      el.contentEditable = 'false';
+      parentEl.classList.remove('editing');
+      el.removeEventListener('blur', finish);
+      el.removeEventListener('keydown', onKey);
+      save();
+    }
+    function onKey(e){
+      if(e.key==='Enter'){ e.preventDefault(); el.blur(); }
+      if(e.key==='Escape'){ el.textContent = n.text; el.blur(); }
+    }
+    el.addEventListener('blur', finish);
+    el.addEventListener('keydown', onKey);
+  }
+
+  function addChild(parentId){
+    const proj = getCurrentMapProject();
+    const p = proj.nodes.find(x=>x.id===parentId);
+    if(!p) return;
+    const siblings = proj.nodes.filter(x=>x.parentId===parentId);
+    const depth = depthOf(p)+1;
+    const nn = {
+      id: uid(),
+      x: p.x + 280,
+      y: p.y + (siblings.length*80),
+      text: 'New Child',
+      color: depth % COLORS.length,
+      priority: 5,
+      parentId: parentId
+    };
+    proj.nodes.push(nn);
+    render();
+    selectNode(nn.id);
+    save();
+    setTimeout(()=>editNode(nn.id), 30);
+  }
+
+  function deleteNode(id){
+    const proj = getCurrentMapProject();
+    const toDelete = getSubtreeIds(id, proj.nodes);
+    proj.nodes = proj.nodes.filter(n=>!toDelete.has(n.id));
+    toDelete.forEach(tid=> selectedIds.delete(tid));
+    render();
+    save();
+  }
+
+  document.getElementById('tbAdd').addEventListener('click', ()=>{ const id=getSingleSelected(); if(id) addChild(id); });
+  document.getElementById('tbEdit').addEventListener('click', ()=>{ const id=getSingleSelected(); if(id) editNode(id); });
+  document.getElementById('tbDel').addEventListener('click', ()=>{
+    const proj = getCurrentMapProject();
+    const id = getSingleSelected();
+    if(id && proj.nodes.length>1) deleteNode(id);
+    else if(proj.nodes.length<=1) alert('Cannot delete the last remaining root node.');
+  });
+  ([...toolbar.querySelectorAll('.swatch')]).forEach(s=>{
+    s.addEventListener('click', ()=>{
+      const id = getSingleSelected();
+      if(!id) return;
+      const proj = getCurrentMapProject();
+      const n = proj.nodes.find(x=>x.id===id);
+      if(!n) return;
+      n.color = Number(s.dataset.c);
+      render(); positionToolbar(); save();
+    });
+  });
+  document.getElementById('prMinus').addEventListener('click', ()=>{
+    const id = getSingleSelected();
+    if(!id) return;
+    const proj = getCurrentMapProject();
+    const n = proj.nodes.find(x=>x.id===id);
+    if(!n) return;
+    n.priority = Math.max(1, (n.priority||5) - 1);
+    document.getElementById('prVal').textContent = n.priority;
+    render(); positionToolbar(); save();
+  });
+  document.getElementById('prPlus').addEventListener('click', ()=>{
+    const id = getSingleSelected();
+    if(!id) return;
+    const proj = getCurrentMapProject();
+    const n = proj.nodes.find(x=>x.id===id);
+    if(!n) return;
+    n.priority = Math.min(10, (n.priority||5) + 1);
+    document.getElementById('prVal').textContent = n.priority;
+    render(); positionToolbar(); save();
+  });
+
+  let panState = null;
+  viewport.addEventListener('mousedown', (e)=>{
+    if(e.target !== viewport && e.target !== world && e.target.id !== 'lines') return;
+
+    const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+    if(isModifier){
+      startMarquee(e);
+      return;
+    }
+
+    selectedIds.clear();
+    toolbar.style.display = 'none';
+    render();
+    const proj = getCurrentMapProject();
+    panState = { startX:e.clientX, startY:e.clientY, origX:proj.view.x, origY:proj.view.y };
+    viewport.classList.add('panning');
+    window.addEventListener('mousemove', onPan);
+    window.addEventListener('mouseup', onPanEnd);
+  });
+  function onPan(e){
+    if(!panState) return;
+    const proj = getCurrentMapProject();
+    proj.view.x = panState.origX + (e.clientX - panState.startX);
+    proj.view.y = panState.origY + (e.clientY - panState.startY);
+    applyView();
+  }
+  function onPanEnd(){
+    panState = null;
+    viewport.classList.remove('panning');
+    window.removeEventListener('mousemove', onPan);
+    window.removeEventListener('mouseup', onPanEnd);
+    save(true);
+  }
+
+  function startMarquee(e){
+    const vpRect = viewport.getBoundingClientRect();
+    marqueeState = {
+      startVpX: e.clientX - vpRect.left,
+      startVpY: e.clientY - vpRect.top
+    };
+    marqueeEl = document.createElement('div');
+    marqueeEl.id = 'marqueeBox';
+    marqueeEl.style.position = 'absolute';
+    marqueeEl.style.border = '1px dashed var(--accent)';
+    marqueeEl.style.background = 'rgba(0,224,199,0.12)';
+    marqueeEl.style.zIndex = '35';
+    marqueeEl.style.pointerEvents = 'none';
+    marqueeEl.style.left = marqueeState.startVpX + 'px';
+    marqueeEl.style.top = marqueeState.startVpY + 'px';
+    marqueeEl.style.width = '0px';
+    marqueeEl.style.height = '0px';
+    viewport.appendChild(marqueeEl);
+    window.addEventListener('mousemove', onMarqueeMove);
+    window.addEventListener('mouseup', onMarqueeEnd);
+  }
+
+  function onMarqueeMove(e){
+    if(!marqueeState || !marqueeEl) return;
+    const vpRect = viewport.getBoundingClientRect();
+    const curVpX = e.clientX - vpRect.left;
+    const curVpY = e.clientY - vpRect.top;
+    const x1 = Math.min(marqueeState.startVpX, curVpX);
+    const y1 = Math.min(marqueeState.startVpY, curVpY);
+    const w = Math.abs(curVpX - marqueeState.startVpX);
+    const h = Math.abs(curVpY - marqueeState.startVpY);
+    marqueeEl.style.left = x1 + 'px';
+    marqueeEl.style.top = y1 + 'px';
+    marqueeEl.style.width = w + 'px';
+    marqueeEl.style.height = h + 'px';
+  }
+
+  function onMarqueeEnd(e){
+    window.removeEventListener('mousemove', onMarqueeMove);
+    window.removeEventListener('mouseup', onMarqueeEnd);
+    if(!marqueeState){ return; }
+
+    const vpRect = viewport.getBoundingClientRect();
+    const curVpX = e.clientX - vpRect.left;
+    const curVpY = e.clientY - vpRect.top;
+    const x1screen = Math.min(marqueeState.startVpX, curVpX);
+    const y1screen = Math.min(marqueeState.startVpY, curVpY);
+    const x2screen = Math.max(marqueeState.startVpX, curVpX);
+    const y2screen = Math.max(marqueeState.startVpY, curVpY);
+
+    const proj = getCurrentMapProject();
+    const wx1 = (x1screen - proj.view.x) / proj.view.scale;
+    const wy1 = (y1screen - proj.view.y) / proj.view.scale;
+    const wx2 = (x2screen - proj.view.x) / proj.view.scale;
+    const wy2 = (y2screen - proj.view.y) / proj.view.scale;
+
+    if(marqueeEl){ marqueeEl.remove(); marqueeEl = null; }
+    marqueeState = null;
+
+    proj.nodes.forEach(n=>{
+      const el = world.querySelector(`.node[data-id="${n.id}"]`);
+      const w2 = el ? el.offsetWidth : 140;
+      const h2 = el ? el.offsetHeight : 40;
+      const nx1 = n.x, ny1 = n.y, nx2 = n.x + w2, ny2 = n.y + h2;
+      const intersects = nx1 < wx2 && nx2 > wx1 && ny1 < wy2 && ny2 > wy1;
+      if(intersects) selectedIds.add(n.id);
+    });
+    render();
+    positionToolbar();
+  }
+
+  function zoomResetView(){
+    const proj = getCurrentMapProject();
+    proj.view = {x: -2600, y: -1750, scale: 1};
+    applyView();
+    save(true);
+  }
+
+  viewport.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    zoomAt(e.clientX, e.clientY, delta);
+  }, {passive:false});
+
+  function zoomAt(clientX, clientY, delta){
+    const rect = viewport.getBoundingClientRect();
+    const mx = clientX - rect.left, my = clientY - rect.top;
+    const proj = getCurrentMapProject();
+    const oldScale = proj.view.scale;
+    let newScale = Math.min(2, Math.max(0.3, oldScale + delta));
+    const wx = (mx - proj.view.x) / oldScale;
+    const wy = (my - proj.view.y) / oldScale;
+    proj.view.x = mx - wx*newScale;
+    proj.view.y = my - wy*newScale;
+    proj.view.scale = newScale;
+    applyView();
+  }
+
+  document.getElementById('zoomIn').addEventListener('click', ()=>{
+    const r = viewport.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, 0.1);
+  });
+  document.getElementById('zoomOut').addEventListener('click', ()=>{
+    const r = viewport.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, -0.1);
+  });
+  document.getElementById('zoomReset').addEventListener('click', zoomResetView);
+
+  // Double click canvas to create floating parentless node
+  viewport.addEventListener('dblclick', (e)=>{
+    if(e.target !== viewport && e.target !== world && e.target.id !== 'lines') return;
+    const proj = getCurrentMapProject();
+    const rect = world.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / proj.view.scale;
+    const ny = (e.clientY - rect.top) / proj.view.scale;
+    const nn = { id: uid(), x: nx - 70, y: ny - 20, text: 'Floating Idea', color: 0, priority: 5, parentId: null };
+    proj.nodes.push(nn);
+    render();
+    selectNode(nn.id);
+    save();
+    setTimeout(()=>editNode(nn.id), 30);
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    const active = document.activeElement;
+    const isEditing = active && active.isContentEditable;
+    if(isEditing) return;
+    if(activeTab!=='mindmap') return;
+
+    if((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size>0){
+      const proj = getCurrentMapProject();
+      const idsSnapshot = [...selectedIds];
+      idsSnapshot.forEach(id=>{
+        if(proj.nodes.length<=1) return;
+        if(proj.nodes.find(n=>n.id===id)) deleteNode(id);
+      });
+    }
+    if(e.key === 'Tab'){
+      const id = getSingleSelected();
+      if(id){ e.preventDefault(); addChild(id); }
+    }
+    if(e.key === 'Escape'){
+      selectedIds.clear();
+      render();
+      positionToolbar();
+    }
+  });
+
+
+  // ================= KANBAN BOARD =================
+  function renderKanban(){
+    const kb = state.kanban;
+    
+    // Ensure project infrastructure exists
+    if(!kb.projects || kb.projects.length === 0) {
+      const pid = uid('p');
+      kb.projects = [{ id: pid, title: 'Trang tính1', columns: [{id:uid('c'), title:'To Do'}, {id:uid('c'), title:'In Progress'}, {id:uid('c'), title:'Done'}], cards: [] }];
+      kb.currentProjectId = pid;
+    }
+    if(!kb.currentProjectId) {
+      kb.currentProjectId = kb.projects[0].id;
+    }
+    
+    let proj = kb.projects.find(p => p.id === kb.currentProjectId);
+    if(!proj) {
+      proj = kb.projects[0];
+      kb.currentProjectId = proj.id;
+    }
+
+    // Render columns and cards inside the track
+    kanbanTrack.innerHTML = '';
+    proj.columns.forEach(col=>{
+      const cids = proj.cards.filter(c=>c.columnId === col.id);
+      
+      const colEl = document.createElement('div');
+      colEl.className = 'kcol';
+      colEl.dataset.id = col.id;
+
+      colEl.innerHTML = `
+        <div class="kcol-head">
+          <div class="kcol-dot"></div>
+          <input type="text" class="kcol-title" value="${col.title}">
+          <span class="kcol-count">${cids.length}</span>
+          <button class="kcol-del">X</button>
+        </div>
+        <div class="kcol-body"></div>
+        <button class="kcol-addcard">ADD CARD</button>
+      `;
+
+      const body = colEl.querySelector('.kcol-body');
+      
+      cids.forEach(card=>{
+        const cardEl = document.createElement('div');
+        cardEl.className = 'kcard';
+        cardEl.draggable = true;
+        cardEl.dataset.id = card.id;
+        cardEl.style.setProperty('--card-color', COLORS[card.color||0]);
+
+        cardEl.innerHTML = `
+          <div class="ktext" contenteditable="true">${card.text}</div>
+          <div class="kcard-actions">
+            <span class="kswatch" data-c="0" style="background:#00e0c7"></span>
+            <span class="kswatch" data-c="1" style="background:#7c9cff"></span>
+            <span class="kswatch" data-c="2" style="background:#ff9d5c"></span>
+            <span class="kswatch" data-c="3" style="background:#ff5c9d"></span>
+            <button class="kdel">Delete</button>
+          </div>
+        `;
+
+        // Color triggers
+        ([...cardEl.querySelectorAll('.kswatch')]).forEach(sw=>{
+          if(Number(sw.dataset.c) === (card.color||0)) sw.classList.add('active');
+          sw.addEventListener('click', (e)=>{
+            e.stopPropagation();
+            card.color = Number(sw.dataset.c);
+            save(); renderKanban();
+          });
+        });
+
+        // Delete Card
+        cardEl.querySelector('.kdel').addEventListener('click', ()=>{
+          proj.cards = proj.cards.filter(x=>x.id!==card.id);
+          save(); renderKanban();
+        });
+
+        // Edit Card text
+        const kt = cardEl.querySelector('.ktext');
+        kt.addEventListener('blur', ()=>{
+          card.text = kt.textContent.trim() || 'Empty Card';
+          save();
+        });
+        kt.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); kt.blur(); } });
+
+        // Drag events
+        cardEl.addEventListener('dragstart', (e)=>{
+          cardEl.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', card.id);
+        });
+        cardEl.addEventListener('dragend', ()=>{ cardEl.classList.remove('dragging'); });
+
+        body.appendChild(cardEl);
+      });
+
+      // Inline col title edit
+      const ti = colEl.querySelector('.kcol-title');
+      ti.addEventListener('blur', ()=>{ col.title = ti.value.trim() || 'Untitled Column'; save(); });
+      ti.addEventListener('keydown', (e)=>{ if(e.key==='Enter') ti.blur(); });
+
+      // Add Card triggers
+      colEl.querySelector('.kcol-addcard').addEventListener('click', ()=>{
+        proj.cards.push({ id: uid('k'), columnId: col.id, text: 'New task card', color: 0 });
+        save(); renderKanban();
+      });
+
+      // Delete Column
+      colEl.querySelector('.kcol-del').addEventListener('click', ()=>{
+        if(confirm('Delete this column and all its cards?')){
+          proj.columns = proj.columns.filter(x=>x.id!==col.id);
+          proj.cards = proj.cards.filter(x=>x.columnId!==col.id);
+          save(); renderKanban();
+        }
+      });
+
+      // Drop target logic
+      body.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+      body.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const cid = e.dataTransfer.getData('text/plain');
+        const found = proj.cards.find(x=>x.id===cid);
+        if(found){ found.columnId = col.id; save(); renderKanban(); }
+      });
+
+      kanbanTrack.appendChild(colEl);
+    });
+
+    // Add Column Button
+    const addColBtn = document.createElement('button');
+    addColBtn.id = 'kanbanAddCol';
+    addColBtn.textContent = 'ADD COLUMN';
+    addColBtn.addEventListener('click', ()=>{
+      proj.columns.push({ id: uid('c'), title: 'New Column' });
+      save(); renderKanban();
+    });
+    kanbanTrack.appendChild(addColBtn);
+
+    // Render Bottom Excel-style Project Managing Tabs Bar
+    const tabsBar = document.getElementById('kanbanTabsBar');
+    tabsBar.innerHTML = '';
+
+    // Plus button to add a new project sheet
+    const addProBtn = document.createElement('button');
+    addProBtn.className = 'kproj-add';
+    addProBtn.innerHTML = '+';
+    addProBtn.title = 'Thêm dự án mới';
+    addProBtn.addEventListener('click', ()=>{
+      const nextIndex = kb.projects.length + 1;
+      const pid = uid('p');
+      kb.projects.push({
+        id: pid,
+        title: 'Trang tính' + nextIndex,
+        columns: [
+          {id: uid('c'), title:'To Do'},
+          {id: uid('c'), title:'In Progress'},
+          {id: uid('c'), title:'Done'}
+        ],
+        cards: []
+      });
+      kb.currentProjectId = pid;
+      save(); renderKanban();
+    });
+    tabsBar.appendChild(addProBtn);
+
+    // List out all project tabs
+    kb.projects.forEach(p => {
+      const tab = document.createElement('div');
+      tab.className = 'kproj-tab' + (p.id === kb.currentProjectId ? ' active' : '');
+      
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = p.title;
+      titleSpan.title = "Nhấp đúp chuột để đổi tên";
+      titleSpan.addEventListener('click', () => {
+        kb.currentProjectId = p.id;
+        save(); renderKanban();
+      });
+      
+      // Double click to rename project title inline
+      titleSpan.addEventListener('dblclick', () => {
+        const newTitle = prompt('Nhập tên mới cho dự án của bạn:', p.title);
+        if(newTitle && newTitle.trim()) {
+          p.title = newTitle.trim();
+          save(); renderKanban();
+        }
+      });
+      tab.appendChild(titleSpan);
+
+      // Show delete project button if there is more than 1 project available
+      if(kb.projects.length > 1) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'kproj-del-btn';
+        delBtn.innerHTML = '×';
+        delBtn.title = 'Xóa dự án này';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if(confirm(`Bạn có chắc muốn xóa dự án "${p.title}" cùng toàn bộ dữ liệu thẻ bên trong?`)) {
+            kb.projects = kb.projects.filter(x => x.id !== p.id);
+            if(kb.currentProjectId === p.id) {
+              kb.currentProjectId = kb.projects[0].id;
+            }
+            save(); renderKanban();
+          }
+        });
+        tab.appendChild(delBtn);
+      }
+
+      tabsBar.appendChild(tab);
+    });
+  }
+
+
+  // ================= TODO LIST =================
+  function renderTodo(){
+    todoList.innerHTML = '';
+    let list = state.todo.tasks;
+    
+    if(todoFilter==='active') list = list.filter(t=>!t.done);
+    if(todoFilter==='done') list = list.filter(t=>t.done);
+
+    // Calculate metrics
+    const total = state.todo.tasks.length;
+    const doneCount = state.todo.tasks.filter(t=>t.done).length;
+    const pct = total>0 ? Math.round((doneCount/total)*100) : 0;
+    document.getElementById('todoProgressFill').style.width = pct+'%';
+    document.getElementById('todoProgressLabel').textContent = `${doneCount}/${total} completed (${pct}%)`;
+
+    todoEmpty.style.display = list.length === 0 ? 'block' : 'none';
+
+    list.forEach(task=>{
+      const li = document.createElement('li');
+      li.className = 'titem' + (task.done?' done':'');
+      const pcol = COLORS[(Number(task.priority)||2)-1] || COLORS[1];
+      li.style.setProperty('--pr-color', pcol);
+
+      const prText = task.priority==='1' ? 'High' : task.priority==='3' ? 'Low' : 'Medium';
+
+      li.innerHTML = `
+        <div class="tcheck">${task.done?'✓':''}</div>
+        <div class="tbody">
+          <div class="ttext" contenteditable="true">${task.text}</div>
+          <div class="tmeta">
+            <span class="tpr-tag">${prText}</span>
+            ${task.due ? `<span class="tdue">${task.due}</span>` : ''}
+          </div>
+        </div>
+        <button class="tdel">Delete</button>
+      `;
+
+      li.querySelector('.tcheck').addEventListener('click', ()=>{
+        task.done = !task.done; save(); renderTodo();
+      });
+      li.querySelector('.tdel').addEventListener('click', ()=>{
+        state.todo.tasks = state.todo.tasks.filter(x=>x.id!==task.id);
+        save(); renderTodo();
+      });
+
+      const tt = li.querySelector('.ttext');
+      tt.addEventListener('blur', ()=>{ task.text = tt.textContent.trim() || 'Empty Task'; save(); });
+      tt.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); tt.blur(); } });
+
+      if(task.due && !task.done){
+        if(new Date(task.due) < new Date().setHours(0,0,0,0)){
+          li.querySelector('.tdue').classList.add('overdue');
+        }
+      }
+
+      todoList.appendChild(li);
+    });
+  }
+
+  // Todo events
+  document.getElementById('todoAddBtn').addEventListener('click', addNewTask);
+  document.getElementById('todoInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addNewTask(); });
+  
+  function addNewTask(){
+    const input = document.getElementById('todoInput');
+    const txt = input.value.trim();
+    if(!txt) return;
+    const pr = document.getElementById('todoPriority').value;
+    const due = document.getElementById('todoDue').value;
+
+    state.todo.tasks.push({ id: uid('t'), text: txt, priority: pr, due: due, done: false });
+    input.value = '';
+    save(); renderTodo();
+  }
+
+  // Todo Filters
+  ([...document.querySelectorAll('#todoFilters .tf')]).forEach(f=>{
+    f.addEventListener('click', ()=>{
+      ([...document.querySelectorAll('#todoFilters .tf')]).forEach(x=>x.classList.remove('active'));
+      f.classList.add('active');
+      todoFilter = f.dataset.filter;
+      renderTodo();
+    });
+  });
+
+  document.getElementById('todoClearDone').addEventListener('click', ()=>{
+    state.todo.tasks = state.todo.tasks.filter(t=>!t.done);
+    save(); renderTodo();
+  });
+
+
+  // ================= DAILY CHECK-IN =================
+
+  function todayKey(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function keyFromDate(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function dayOfYearHash(){
+    const d = new Date();
+    const start = new Date(d.getFullYear(), 0, 0);
+    const diff = d - start;
+    return Math.floor(diff / 86400000);
+  }
+
+  function computeStreaks(){
+    const entries = state.checkin.entries;
+    const keys = Object.keys(entries);
+    const total = keys.length;
+    if(total===0) return { current:0, best:0, total:0 };
+
+    // Current streak
+    let current = 0;
+    let cursor = new Date();
+    if(!entries[todayKey()]){
+      cursor.setDate(cursor.getDate()-1);
+    }
+    while(entries[keyFromDate(cursor)]){
+      current++;
+      cursor.setDate(cursor.getDate()-1);
+    }
+
+    // Best streak
+    const sorted = keys.slice().sort();
+    let best = 1, run = 1;
+    for(let i=1; i<sorted.length; i++){
+      const prev = new Date(sorted[i-1]+'T00:00:00');
+      const cur = new Date(sorted[i]+'T00:00:00');
+      const diffDays = Math.round((cur-prev)/86400000);
+      if(diffDays===1){ run++; } else { run = 1; }
+      if(run>best) best = run;
+    }
+    if(total===1) best = 1;
+
+    return { current, best, total };
+  }
+
+  function renderCheckin(){
+    const stats = computeStreaks();
+    document.getElementById('curStreak').textContent = stats.current;
+    document.getElementById('bestStreak').textContent = stats.best;
+    document.getElementById('totalCheckins').textContent = stats.total;
+
+    document.getElementById('checkinQuote').textContent = '';
+
+    const btn = document.getElementById('checkinBtn');
+    const doneToday = !!state.checkin.entries[todayKey()];
+    if(doneToday){
+      btn.textContent = '✓';
+      btn.classList.add('done');
+    } else {
+      btn.textContent = 'CHECK';
+      btn.classList.remove('done');
+    }
+
+    document.getElementById('checkinYearLabel').textContent = checkinYear;
+    renderYearGrid();
+    renderCheckinLog();
+  }
+
+  const MONTH_NAMES = ['THANG 1','THANG 2','THANG 3','THANG 4','THANG 5','THANG 6','THANG 7','THANG 8','THANG 9','THANG 10','THANG 11','THANG 12'];
+  const WEEKDAY_LABELS = ['T2','T3','T4','T5','T6','T7','CN'];
+
+  function renderYearGrid(){
+    const grid = document.getElementById('checkinYearGrid');
+    grid.innerHTML = '';
+    const todayStr = todayKey();
+    const now = new Date(); now.setHours(0,0,0,0);
+
+    for(let m=0; m<12; m++){
+      const monthBox = document.createElement('div');
+      monthBox.className = 'cmonth';
+
+      const title = document.createElement('div');
+      title.className = 'cmonth-title';
+      title.textContent = MONTH_NAMES[m];
+      monthBox.appendChild(title);
+
+      const wk = document.createElement('div');
+      wk.className = 'cmonth-weekdays';
+      WEEKDAY_LABELS.forEach(w=>{
+        const s = document.createElement('span');
+        s.textContent = w;
+        wk.appendChild(s);
+      });
+      monthBox.appendChild(wk);
+
+      const daysWrap = document.createElement('div');
+      daysWrap.className = 'cmonth-days';
+
+      const firstDay = new Date(checkinYear, m, 1);
+      let firstWeekday = firstDay.getDay(); // 0=Sun..6=Sat
+      firstWeekday = (firstWeekday + 6) % 7; // convert to Mon=0..Sun=6
+      const daysInMonth = new Date(checkinYear, m+1, 0).getDate();
+
+      for(let i=0; i<firstWeekday; i++){
+        const blank = document.createElement('div');
+        blank.className = 'cday blank';
+        daysWrap.appendChild(blank);
+      }
+
+      for(let d=1; d<=daysInMonth; d++){
+        const dateObj = new Date(checkinYear, m, d);
+        const key = keyFromDate(dateObj);
+        const cell = document.createElement('div');
+        cell.className = 'cday';
+        cell.textContent = d;
+        cell.dataset.key = key;
+        if(state.checkin.entries[key]) cell.classList.add('filled');
+        if(key === todayStr) cell.classList.add('today');
+        if(dateObj > now) cell.classList.add('future');
+        cell.addEventListener('click', ()=> handleDayClick(key));
+        daysWrap.appendChild(cell);
+      }
+
+      monthBox.appendChild(daysWrap);
+      grid.appendChild(monthBox);
+    }
+  }
+
+  function handleDayClick(key){
+    if(!state.checkin.entries[key]){
+      state.checkin.entries[key] = { note:'', ts: Date.now() };
+      save();
+      renderCheckin();
+    }
+    openDayModal(key);
+  }
+
+  function openDayModal(key){
+    checkinModalKey = key;
+    const entry = state.checkin.entries[key] || { note:'' };
+    const d = new Date(key + 'T00:00:00');
+    const weekdayNames = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+    document.getElementById('checkinModalTitle').textContent = weekdayNames[d.getDay()] + ', ' + key;
+    document.getElementById('checkinModalNote').value = entry.note || '';
+    document.getElementById('checkinModalOverlay').classList.add('open');
+    setTimeout(()=> document.getElementById('checkinModalNote').focus(), 30);
+  }
+
+  function closeDayModal(){
+    document.getElementById('checkinModalOverlay').classList.remove('open');
+    checkinModalKey = null;
+  }
+
+  document.getElementById('checkinModalSave').addEventListener('click', ()=>{
+    if(checkinModalKey && state.checkin.entries[checkinModalKey]){
+      state.checkin.entries[checkinModalKey].note = document.getElementById('checkinModalNote').value.trim();
+      save();
+      renderCheckin();
+    }
+    closeDayModal();
+  });
+  document.getElementById('checkinModalRemove').addEventListener('click', ()=>{
+    if(checkinModalKey){
+      delete state.checkin.entries[checkinModalKey];
+      save();
+      renderCheckin();
+    }
+    closeDayModal();
+  });
+  document.getElementById('checkinModalCancel').addEventListener('click', closeDayModal);
+  document.getElementById('checkinModalOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'checkinModalOverlay') closeDayModal();
+  });
+
+  document.getElementById('checkinYearPrev').addEventListener('click', ()=>{
+    checkinYear--; renderCheckin();
+  });
+  document.getElementById('checkinYearNext').addEventListener('click', ()=>{
+    checkinYear++; renderCheckin();
+  });
+
+  function renderCheckinLog(){
+    const entries = state.checkin.entries;
+    const keys = Object.keys(entries).sort().reverse().slice(0, 20);
+    checkinLog.innerHTML = '';
+    checkinEmpty.style.display = keys.length===0 ? 'block' : 'none';
+    keys.forEach(k=>{
+      const li = document.createElement('li');
+      li.className = 'clog-item';
+      li.style.cursor = 'pointer';
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'clog-date';
+      dateSpan.textContent = k;
+      const noteSpan = document.createElement('span');
+      const note = entries[k].note;
+      noteSpan.className = 'clog-note' + (note ? '' : ' empty');
+      noteSpan.textContent = note || 'NO NOTE';
+      li.append(dateSpan, noteSpan);
+      li.addEventListener('click', ()=> openDayModal(k));
+      checkinLog.appendChild(li);
+    });
+  }
+
+  document.getElementById('checkinBtn').addEventListener('click', ()=>{
+    handleDayClick(todayKey());
+  });
+
+
+  // ================= TOP BAR GLOBAL BUTTONS =================
+  document.getElementById('btnNew').addEventListener('click', ()=>{
+    if(confirm('Start a completely new board? This clears all existing views.')){
+      state = defaultData(); save(); selectNode(null); render(); renderMapTabs();
+    }
+  });
+  document.getElementById('btnSave').addEventListener('click', ()=>{ save(); alert('Saved securely to internal browser memory.'); });
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    const str = JSON.stringify(state, null, 2);
+    const blob = new Blob([str], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'nodemap_project_export.json';
+    a.click(); URL.revokeObjectURL(url);
+  });
+  document.getElementById('btnImport').addEventListener('click', ()=>{ document.getElementById('fileInput').click(); });
+  document.getElementById('fileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      try{
+        const parsed = JSON.parse(evt.target.result);
+        if(parsed.mindmap && parsed.mindmap.nodes){
+          state = parsed; save(); selectNode(null); render();
+          alert('Project imported successfully.');
+        } else { alert('Invalid structural data inside JSON.'); }
+      }catch(err){ alert('Error parsing file.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('btnPng').addEventListener('click', ()=>{
+    selectedIds.clear(); toolbar.style.display='none'; render();
+    
+    let targetEl = viewport;
+    if(activeTab==='kanban') targetEl = kanbanView;
+    if(activeTab==='todo') targetEl = todoView;
+    if(activeTab==='checkin') targetEl = checkinView;
+
+    html2canvas(targetEl, { backgroundColor: '#0a0e15', useCORS: true }).then(canvas=>{
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `nodemap_${activeTab}_capture.png`;
+      a.click();
+    });
+  });
+
+
+  // ================= SETUP APPLICATION =================
+  state = load();
+  applyView();
+  render();
+  renderMapTabs();
+
+})();
+</script>
+</body>
+</html>
