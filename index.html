@@ -495,6 +495,87 @@
   }
   #checkinModalNote:focus{ border-color:var(--accent); }
   #checkinModalActions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+  /* Finance (Thu Chi) */
+  #financeView{
+    position:absolute; top:56px; left:0; right:0; bottom:0;
+    display:none; overflow-y:auto; padding:32px 22px;
+  }
+  #financePanel{ max-width:960px; margin:0 auto; }
+
+  #financeMonthNav{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  #financeMonthNav button{
+    width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); cursor:pointer; font-size:15px;
+  }
+  #financeMonthNav button:hover{ border-color:var(--accent); color:var(--accent); }
+  #financeMonthLabel{ font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:500; color:var(--muted); min-width:110px; text-align:center; }
+
+  #financeSummary{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+  .fsum-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:18px 16px;
+    border-left:3px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fsum-card.income{ border-left-color:var(--c0); }
+  .fsum-card.expense{ border-left-color:#ff5c7a; }
+  .fsum-card.balance{ border-left-color:var(--c1); }
+  .fsum-val{ font-family:'JetBrains Mono', monospace; font-size:20px; font-weight:700; word-break:break-all; }
+  .fsum-card.income .fsum-val{ color:var(--c0); }
+  .fsum-card.expense .fsum-val{ color:#ff5c7a; }
+  .fsum-card.balance .fsum-val{ color:var(--c1); }
+
+  #financeAddBox{
+    background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:14px; margin-bottom:20px;
+  }
+  #financeAddRow1, #financeAddRow2{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  #financeAddRow2{ margin-bottom:0; }
+  .ftype-toggle{ display:flex; border:1px solid var(--line); }
+  .ftype-toggle button{
+    background:transparent; border:none; color:var(--muted); font-family:inherit; font-size:12.5px;
+    padding:10px 16px; cursor:pointer; font-weight:600;
+  }
+  .ftype-toggle button.active[data-ftype="expense"]{ background:#ff5c7a; color:#2a0510; }
+  .ftype-toggle button.active[data-ftype="income"]{ background:var(--c0); color:#05201c; }
+  #financeAmount, #financeDate, #financeNote, #financeTypeFilter{
+    background:var(--bg); border:1px solid var(--line); border-radius:0px;
+    color:var(--text); font-family:inherit; font-size:13px; padding:10px 12px; outline:none;
+  }
+  #financeAmount:focus, #financeDate:focus, #financeNote:focus{ border-color:var(--accent); }
+  #financeAmount{ width:150px; }
+  #financeNote{ flex:1; min-width:180px; }
+  #financeAddBtn{ font-weight:600; }
+
+  #financeFilters{ display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  #financeSpacer{ flex:1; }
+
+  #financeBody{ display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+  #financeListCol{ flex:1; min-width:320px; }
+
+  #financeList{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .fitem{
+    display:flex; align-items:center; gap:12px;
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--f-color, var(--accent));
+    border-radius:0px; padding:12px 14px;
+  }
+  .fitem-body{ flex:1; min-width:0; }
+  .fitem-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .fitem-amt{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:700; white-space:nowrap; line-height:1; }
+  .fitem-amt.income{ color:var(--c0); }
+  .fitem-amt.expense{ color:#ff5c7a; }
+  .fitem-date{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted); white-space:nowrap; line-height:1; }
+  .fitem-note{ display:flex; align-items:center; gap:10px; margin-top:5px; font-size:12px; color:var(--muted); word-break:break-word; }
+  .fitem-date{ flex-shrink:0; margin-left:auto; text-align:right; }
+  .fitem-note-text{ min-width:0; word-break:break-word; }
+  .fitem .fdel{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; padding:4px; border-radius:0px; flex-shrink:0;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .fitem .fdel:hover{ color:#ff5c7a; background:var(--surface-2); }
+  #financeEmpty{
+    display:none; text-align:center; color:var(--muted); font-size:13px; padding:40px 10px;
+    border:1px dashed var(--line); border-radius:0px; margin-top:8px;
+  }
 </style>
 </head>
 <body>
@@ -506,6 +587,7 @@
     <button data-tab="kanban">TRELLO</button>
     <button data-tab="todo">TODO</button>
     <button data-tab="checkin">CHECK</button>
+    <button data-tab="finance">MONEY</button>
   </div>
   <div class="sep"></div>
   <button class="btn" id="btnNew">NEW</button>
@@ -613,6 +695,59 @@
   </div>
 </div>
 
+<div id="financeView">
+  <div id="financePanel">
+    <div id="financeMonthNav">
+      <button id="financeMonthPrev">‹</button>
+      <span id="financeMonthLabel">THANG 1/2026</span>
+      <button id="financeMonthNext">›</button>
+    </div>
+
+    <div id="financeSummary">
+      <div class="fsum-card income">
+        <div class="fsum-val" id="financeTotalIncome">0</div>
+      </div>
+      <div class="fsum-card expense">
+        <div class="fsum-val" id="financeTotalExpense">0</div>
+      </div>
+      <div class="fsum-card balance">
+        <div class="fsum-val" id="financeBalance">0</div>
+      </div>
+    </div>
+
+    <div id="financeAddBox">
+      <div id="financeAddRow1">
+        <div class="ftype-toggle">
+          <button type="button" class="active" data-ftype="expense" id="financeTypeExpenseBtn">CHI TIEU</button>
+          <button type="button" data-ftype="income" id="financeTypeIncomeBtn">THU NHAP</button>
+        </div>
+        <input type="number" id="financeAmount" placeholder="" min="0" step="1000">
+        <input type="date" id="financeDate" title="NGAY">
+      </div>
+      <div id="financeAddRow2">
+        <input type="text" id="financeNote" placeholder="">
+        <button class="btn primary" id="financeAddBtn">THEM</button>
+      </div>
+    </div>
+
+    <div id="financeFilters">
+      <select id="financeTypeFilter">
+        <option value="all">TAT CA</option>
+        <option value="income">THU NHAP</option>
+        <option value="expense">CHI TIEU</option>
+      </select>
+      <div id="financeSpacer"></div>
+    </div>
+
+    <div id="financeBody">
+      <div id="financeListCol">
+        <ul id="financeList"></ul>
+        <div id="financeEmpty">CHUA CO GIAO DICH NAO TRONG THANG NAY.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="nodeToolbar">
   <div class="row">
     <span class="swatch" data-c="0" style="background:#00e0c7"></span>
@@ -668,6 +803,12 @@
   const checkinEmpty = document.getElementById('checkinEmpty');
   let checkinYear = new Date().getFullYear();
   let checkinModalKey = null;
+  const financeView = document.getElementById('financeView');
+  const financeList = document.getElementById('financeList');
+  const financeEmpty = document.getElementById('financeEmpty');
+  let financeMonthCursor = new Date();
+  let financeTypeFilter = 'all';
+  let financeAddType = 'expense';
 
   function uid(prefix){ return (prefix||'n') + (idSeq++) + '_' + Math.random().toString(36).slice(2,7); }
 
@@ -717,7 +858,8 @@
         ]
       },
       todo: { tasks: [] },
-      checkin: { entries: {} }
+      checkin: { entries: {} },
+      finance: { transactions: [] }
     };
   }
 
@@ -779,6 +921,8 @@
     if(!Array.isArray(parsed.todo.tasks)) parsed.todo.tasks = [];
     if(!parsed.checkin) parsed.checkin = defaultData().checkin;
     if(!parsed.checkin.entries) parsed.checkin.entries = {};
+    if(!parsed.finance) parsed.finance = defaultData().finance;
+    if(!Array.isArray(parsed.finance.transactions)) parsed.finance.transactions = [];
     return parsed;
   }
 
@@ -897,6 +1041,7 @@
     document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
     viewport.style.display='none'; zoomctl.style.display='none';
     kanbanView.style.display='none'; todoView.style.display='none'; checkinView.style.display='none';
+    financeView.style.display='none';
     toolbar.style.display='none';
 
     if(activeTab==='mindmap'){
@@ -917,6 +1062,10 @@
       viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
       checkinView.style.display='block';
       renderCheckin();
+    } else if(activeTab==='finance'){
+      viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
+      financeView.style.display='block';
+      renderFinance();
     }
   }
 
@@ -1919,8 +2068,123 @@
   });
   document.getElementById('btnSave').addEventListener('click', ()=>{ save(); alert('Saved securely to internal browser memory.'); });
 
+  // ================= FINANCE (THU CHI) =================
+
+  function formatVND(n){
+    const num = Math.round(Number(n)||0);
+    return num.toLocaleString('vi-VN');
+  }
+
+  function financeMonthKey(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  function financeMonthLabelText(d){
+    return 'THANG ' + (d.getMonth()+1) + '/' + d.getFullYear();
+  }
+
+  function getMonthTransactions(){
+    const mk = financeMonthKey(financeMonthCursor);
+    return state.finance.transactions.filter(t => (t.date||'').slice(0,7) === mk);
+  }
+
+  function renderFinance(){
+    document.getElementById('financeMonthLabel').textContent = financeMonthLabelText(financeMonthCursor);
+
+    const monthTx = getMonthTransactions();
+    const totalIncome = monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount||0),0);
+    const totalExpense = monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount||0),0);
+    document.getElementById('financeTotalIncome').textContent = formatVND(totalIncome) + ' đ';
+    document.getElementById('financeTotalExpense').textContent = formatVND(totalExpense) + ' đ';
+    document.getElementById('financeBalance').textContent = formatVND(totalIncome-totalExpense) + ' đ';
+
+    let list = monthTx;
+    if(financeTypeFilter !== 'all') list = list.filter(t=>t.type===financeTypeFilter);
+    list = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
+
+    financeList.innerHTML = '';
+    financeEmpty.style.display = list.length===0 ? 'block' : 'none';
+
+    list.forEach(tx=>{
+      const li = document.createElement('li');
+      li.className = 'fitem';
+      li.style.setProperty('--f-color', tx.type==='income' ? '#00e0c7' : '#ff5c7a');
+      const sign = tx.type==='income' ? '+' : '−';
+      li.innerHTML = `
+        <div class="fitem-body">
+          <div class="fitem-top">
+            <span class="fitem-amt ${tx.type}">${sign}${formatVND(tx.amount)} đ</span>
+            <button class="fdel" title="XOA">XOA</button>
+          </div>
+          <div class="fitem-note">
+            ${tx.note ? `<span class="fitem-note-text">${tx.note}</span>` : ''}
+            <span class="fitem-date">${tx.date}</span>
+          </div>
+        </div>
+      `;
+      li.querySelector('.fdel').addEventListener('click', ()=>{
+        state.finance.transactions = state.finance.transactions.filter(x=>x.id!==tx.id);
+        save(); renderFinance();
+      });
+      financeList.appendChild(li);
+    });
+  }
+
+  function addFinanceTransaction(){
+    const amountInput = document.getElementById('financeAmount');
+    const amount = Number(amountInput.value);
+    if(!amount || amount<=0){ amountInput.focus(); return; }
+    const dateInput = document.getElementById('financeDate');
+    const date = dateInput.value || todayKey();
+    const note = document.getElementById('financeNote').value.trim();
+
+    state.finance.transactions.push({
+      id: uid('f'),
+      type: financeAddType,
+      amount: amount,
+      date: date,
+      note: note,
+      createdAt: Date.now()
+    });
+
+    amountInput.value = '';
+    document.getElementById('financeNote').value = '';
+    save(); renderFinance();
+  }
+
+  document.getElementById('financeAddBtn').addEventListener('click', addFinanceTransaction);
+  document.getElementById('financeAmount').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addFinanceTransaction(); });
+  document.getElementById('financeNote').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addFinanceTransaction(); });
+
+  ([...document.querySelectorAll('.ftype-toggle button')]).forEach(b=>{
+    b.addEventListener('click', ()=>{
+      ([...document.querySelectorAll('.ftype-toggle button')]).forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      financeAddType = b.dataset.ftype;
+    });
+  });
+
+  document.getElementById('financeTypeFilter').addEventListener('change', (e)=>{
+    financeTypeFilter = e.target.value; renderFinance();
+  });
+
+  document.getElementById('financeMonthPrev').addEventListener('click', ()=>{
+    financeMonthCursor.setMonth(financeMonthCursor.getMonth()-1);
+    renderFinance();
+  });
+  document.getElementById('financeMonthNext').addEventListener('click', ()=>{
+    financeMonthCursor.setMonth(financeMonthCursor.getMonth()+1);
+    renderFinance();
+  });
+
+  // set default date input to today whenever finance tab is shown
+  (function initFinanceDateDefault(){
+    const dateInput = document.getElementById('financeDate');
+    if(dateInput && !dateInput.value) dateInput.value = todayKey();
+  })();
+
   // ================= EXPORT (per-tab / per-item) =================
-  const TAB_LABELS = { mindmap:'MAP', kanban:'TRELLO', todo:'TODO', checkin:'CHECK' };
+  const TAB_LABELS = { mindmap:'MAP', kanban:'TRELLO', todo:'TODO', checkin:'CHECK', finance:'THU CHI' };
 
   function slug(s){
     return (s||'file').toString().trim().toLowerCase()
@@ -2003,9 +2267,11 @@
       items.push({ label: 'Xuất toàn bộ tab TODO', run: ()=>exportTab('todo') });
     } else if(activeTab === 'checkin'){
       items.push({ label: 'Xuất toàn bộ tab CHECK', run: ()=>exportTab('checkin') });
+    } else if(activeTab === 'finance'){
+      items.push({ label: 'Xuất toàn bộ tab THU CHI', run: ()=>exportTab('finance') });
     }
 
-    items.push({ label: 'Xuất TOÀN BỘ dữ liệu (MAP + TRELLO + TODO + CHECK)', run: exportFull });
+    items.push({ label: 'Xuất TOÀN BỘ dữ liệu (MAP + TRELLO + TODO + CHECK + THU CHI)', run: exportFull });
 
     items.forEach(it=>{
       const b = document.createElement('button');
@@ -2085,6 +2351,12 @@
     });
   }
 
+  function importFinanceTransactions(financeData){
+    (financeData.transactions||[]).forEach(t=>{
+      state.finance.transactions.push(Object.assign({}, t, { id: uid('f') }));
+    });
+  }
+
   function importCheckinEntries(checkinData){
     const entries = checkinData.entries || {};
     let overwriteAll = null; // null=ask each time, true/false=applied to all
@@ -2146,6 +2418,10 @@
           importCheckinEntries(wrapper.data || {});
           save(); switchTab('checkin');
           alert('Đã cập nhật dữ liệu tab CHECK.');
+        } else if(tab === 'finance'){
+          importFinanceTransactions(wrapper.data || {});
+          save(); switchTab('finance');
+          alert('Đã thêm giao dịch vào tab THU CHI.');
         } else {
           alert('Không nhận diện được loại tab trong file.');
         }
@@ -2192,6 +2468,7 @@
     if(activeTab==='kanban') targetEl = kanbanView;
     if(activeTab==='todo') targetEl = todoView;
     if(activeTab==='checkin') targetEl = checkinView;
+    if(activeTab==='finance') targetEl = financeView;
 
     html2canvas(targetEl, { backgroundColor: '#0a0e15', useCORS: true }).then(canvas=>{
       const a = document.createElement('a');
