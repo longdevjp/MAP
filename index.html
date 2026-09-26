@@ -114,6 +114,9 @@
   }
   svg#lines{ position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
   .lnk{ fill:none; stroke-width:2; opacity:0.85; }
+  .lnk-free{ fill:none; stroke:var(--muted); stroke-width:1.8; stroke-dasharray:6,4; opacity:0.75; pointer-events:stroke; cursor:pointer; }
+  .lnk-free:hover{ stroke:#ff5c7a; opacity:1; stroke-width:2.4; }
+  .lnk-temp{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:5,4; pointer-events:none; opacity:0.9; }
 
   .node{
     position:absolute;
@@ -150,6 +153,22 @@
     border:1px solid var(--line);
   }
   .node[contenteditable="true"]{ outline:none; }
+
+  .node .node-img{
+    display:block; max-width:240px; max-height:200px; width:100%; height:auto;
+    object-fit:cover; margin-bottom:6px; border:1px solid var(--line); pointer-events:none;
+  }
+  .node.has-image{ padding:8px !important; max-width:260px; }
+
+  .node .link-handle{
+    position:absolute; right:-7px; top:50%; width:12px; height:12px;
+    background:var(--surface); border:2px solid var(--node-color, var(--accent));
+    border-radius:50%; transform:translate(50%,-50%);
+    cursor:crosshair; opacity:0; transition:opacity .12s ease, transform .12s ease;
+    z-index:5;
+  }
+  .node:hover .link-handle, .node.selected .link-handle{ opacity:1; }
+  .node .link-handle:hover{ background:var(--node-color, var(--accent)); transform:translate(50%,-50%) scale(1.25); }
 
   /* floating toolbar attached to selected node */
   #nodeToolbar{
@@ -838,7 +857,8 @@
             id: defaultProjId,
             title: 'Bản đồ 1',
             view: {x: -2600, y: -1750, scale: 1},
-            nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }]
+            nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }],
+            connections: []
           }
         ]
       },
@@ -911,7 +931,8 @@
       id: p.id || uid('p'),
       title: p.title || 'Bản đồ',
       view: p.view || {x: -2600, y: -1750, scale: 1},
-      nodes: Array.isArray(p.nodes) ? p.nodes.map(n => ({ ...n, priority: n.priority || 5 })) : []
+      nodes: Array.isArray(p.nodes) ? p.nodes.map(n => ({ ...n, priority: n.priority || 5 })) : [],
+      connections: Array.isArray(p.connections) ? p.connections : []
     }));
     if(!parsed.mindmap.currentProjectId || !parsed.mindmap.projects.some(p => p.id === parsed.mindmap.currentProjectId)) {
       parsed.mindmap.currentProjectId = parsed.mindmap.projects[0].id;
@@ -939,7 +960,7 @@
 
   function getCurrentMapProject(){
     if(!state.mindmap || !Array.isArray(state.mindmap.projects) || state.mindmap.projects.length===0){
-      const proj = { id: uid('p'), title:'Bản đồ 1', view:{x:-2600,y:-1750,scale:1}, nodes:[{id:uid(),x:2800,y:1900,text:'Central Idea',color:0,priority:5,parentId:null}] };
+      const proj = { id: uid('p'), title:'Bản đồ 1', view:{x:-2600,y:-1750,scale:1}, nodes:[{id:uid(),x:2800,y:1900,text:'Central Idea',color:0,priority:5,parentId:null}], connections:[] };
       state.mindmap = { currentProjectId: proj.id, projects:[proj] };
       return proj;
     }
@@ -979,7 +1000,8 @@
         id: pid,
         title: 'Bản đồ ' + nextIndex,
         view: {x:-2600,y:-1750,scale:1},
-        nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }]
+        nodes: [{ id: uid(), x: 2800, y: 1900, text: 'Central Idea', color:0, priority:5, parentId:null }],
+        connections: []
       });
       state.mindmap.currentProjectId = pid;
       selectedIds.clear();
@@ -1105,10 +1127,6 @@
     const map = Object.fromEntries(proj.nodes.map(n=>[n.id,n]));
 
     proj.nodes.forEach(n=>{
-      if(n.parentId && map[n.parentId]) drawLink(map[n.parentId], n);
-    });
-
-    proj.nodes.forEach(n=>{
       const el = document.createElement('div');
       el.className = 'node';
       el.dataset.id = n.id;
@@ -1122,6 +1140,7 @@
       el.style.borderWidth = st.borderW + 'px';
       if(st.imp >= 8) el.style.fontWeight = '600';
       if(selectedIds.has(n.id)) el.classList.add('selected');
+      if(n.image) el.classList.add('has-image');
 
       const dot = document.createElement('div');
       dot.className = 'dot';
@@ -1132,13 +1151,40 @@
       badge.textContent = n.priority || 5;
       el.appendChild(badge);
 
+      if(n.image){
+        const img = document.createElement('img');
+        img.className = 'node-img';
+        img.src = n.image;
+        img.draggable = false;
+        img.alt = n.text || 'Ảnh';
+        el.appendChild(img);
+      }
+
       const txt = document.createElement('div');
       txt.className = 'txt';
       txt.textContent = n.text;
       el.appendChild(txt);
 
+      const linkHandle = document.createElement('div');
+      linkHandle.className = 'link-handle';
+      linkHandle.title = 'Kéo để nối với node khác';
+      linkHandle.addEventListener('mousedown', (e)=>{
+        e.stopPropagation();
+        e.preventDefault();
+        startConnecting(n.id, e);
+      });
+      el.appendChild(linkHandle);
+
       world.appendChild(el);
       attachNodeEvents(el, n);
+    });
+
+    proj.nodes.forEach(n=>{
+      if(n.parentId && map[n.parentId]) drawLink(map[n.parentId], n);
+    });
+    (proj.connections||[]).forEach(c=>{
+      const a = map[c.from], b = map[c.to];
+      if(a && b) drawFreeLink(c, a, b);
     });
 
     positionToolbar();
@@ -1164,7 +1210,82 @@
     svg.appendChild(path);
   }
 
+  function drawFreeLink(conn, a, b){
+    const pa = nodeCenter(a);
+    const pb = nodeCenter(b);
+    const dx = Math.max(60, Math.abs(pb.x-pa.x)*0.5);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const d = `M ${pa.x} ${pa.y} C ${pa.x+dx} ${pa.y}, ${pb.x-dx} ${pb.y}, ${pb.x} ${pb.y}`;
+    path.setAttribute('d', d);
+    path.setAttribute('class','lnk-free');
+    path.addEventListener('mousedown', (e)=>{ e.stopPropagation(); });
+    path.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(confirm('Xoá đường nối này?')) removeConnection(conn.id);
+    });
+    svg.appendChild(path);
+  }
+
+  function startConnecting(sourceId, e){
+    connectState = { sourceId };
+    tempLinkPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+    tempLinkPath.setAttribute('class','lnk-temp');
+    svg.appendChild(tempLinkPath);
+    updateTempLink(e);
+    window.addEventListener('mousemove', onConnectMove);
+    window.addEventListener('mouseup', onConnectEnd);
+  }
+
+  function updateTempLink(e){
+    if(!connectState || !tempLinkPath) return;
+    const proj = getCurrentMapProject();
+    const srcNode = proj.nodes.find(x=>x.id===connectState.sourceId);
+    if(!srcNode) return;
+    const a = nodeCenter(srcNode);
+    const rect = world.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / proj.view.scale;
+    const my = (e.clientY - rect.top) / proj.view.scale;
+    tempLinkPath.setAttribute('d', `M ${a.x} ${a.y} L ${mx} ${my}`);
+  }
+
+  function onConnectMove(e){ updateTempLink(e); }
+
+  function onConnectEnd(e){
+    window.removeEventListener('mousemove', onConnectMove);
+    window.removeEventListener('mouseup', onConnectEnd);
+    if(tempLinkPath){ tempLinkPath.remove(); tempLinkPath = null; }
+    if(!connectState) return;
+    const sourceId = connectState.sourceId;
+    connectState = null;
+    const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+    const targetNodeEl = elAtPoint ? elAtPoint.closest('.node') : null;
+    if(targetNodeEl){
+      const targetId = targetNodeEl.dataset.id;
+      if(targetId && targetId !== sourceId) addConnection(sourceId, targetId);
+    }
+    render();
+  }
+
+  function addConnection(fromId, toId){
+    const proj = getCurrentMapProject();
+    if(!proj.connections) proj.connections = [];
+    const exists = proj.connections.some(c => (c.from===fromId && c.to===toId) || (c.from===toId && c.to===fromId));
+    if(exists) return;
+    proj.connections.push({ id: uid('lk'), from: fromId, to: toId });
+    save();
+  }
+
+  function removeConnection(connId){
+    const proj = getCurrentMapProject();
+    proj.connections = (proj.connections||[]).filter(c=>c.id!==connId);
+    render();
+    save();
+  }
+
+
   let dragState = null;
+  let connectState = null;
+  let tempLinkPath = null;
   let marqueeState = null;
   let marqueeEl = null;
 
@@ -1236,6 +1357,10 @@
     const map = Object.fromEntries(proj.nodes.map(n=>[n.id,n]));
     proj.nodes.forEach(n=>{
       if(n.parentId && map[n.parentId]) drawLink(map[n.parentId], n);
+    });
+    (proj.connections||[]).forEach(c=>{
+      const a = map[c.from], b = map[c.to];
+      if(a && b) drawFreeLink(c, a, b);
     });
   }
 
@@ -1320,6 +1445,7 @@
     const proj = getCurrentMapProject();
     const toDelete = getSubtreeIds(id, proj.nodes);
     proj.nodes = proj.nodes.filter(n=>!toDelete.has(n.id));
+    proj.connections = (proj.connections||[]).filter(c=>!toDelete.has(c.from) && !toDelete.has(c.to));
     toDelete.forEach(tid=> selectedIds.delete(tid));
     render();
     save();
@@ -1541,10 +1667,53 @@
       if(id){ e.preventDefault(); addChild(id); }
     }
     if(e.key === 'Escape'){
+      if(connectState){
+        connectState = null;
+        if(tempLinkPath){ tempLinkPath.remove(); tempLinkPath = null; }
+        window.removeEventListener('mousemove', onConnectMove);
+        window.removeEventListener('mouseup', onConnectEnd);
+      }
       selectedIds.clear();
       render();
       positionToolbar();
     }
+  });
+
+  // ================= PASTE IMAGE INTO MINDMAP (Ctrl+V) =================
+  window.addEventListener('paste', (e)=>{
+    if(activeTab !== 'mindmap') return;
+    const active = document.activeElement;
+    if(active && active.isContentEditable) return; // don't hijack paste while renaming a node
+
+    const cd = e.clipboardData || window.clipboardData;
+    if(!cd || !cd.items) return;
+    let imageItem = null;
+    for(const item of cd.items){
+      if(item.type && item.type.indexOf('image/') === 0){ imageItem = item; break; }
+    }
+    if(!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if(!file) return;
+    e.preventDefault();
+
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const dataUrl = ev.target.result;
+      const proj = getCurrentMapProject();
+      const rect = world.getBoundingClientRect();
+      const vpRect = viewport.getBoundingClientRect();
+      const cx = vpRect.left + vpRect.width/2;
+      const cy = vpRect.top + vpRect.height/2;
+      const nx = (cx - rect.left) / proj.view.scale - 100;
+      const ny = (cy - rect.top) / proj.view.scale - 60;
+      const nn = { id: uid(), x: nx, y: ny, text: '', image: dataUrl, color: 0, priority: 5, parentId: null };
+      proj.nodes.push(nn);
+      render();
+      selectNode(nn.id);
+      save();
+    };
+    reader.readAsDataURL(file);
   });
 
 
@@ -2303,11 +2472,17 @@
       return Object.assign({}, n, { id: nid });
     });
     newNodes.forEach(n=>{ if(n.parentId) n.parentId = idMap[n.parentId] || null; });
+    const newConnections = (proj.connections||[]).map(c=>({
+      id: uid('lk'),
+      from: idMap[c.from] || c.from,
+      to: idMap[c.to] || c.to
+    })).filter(c=> newNodes.some(n=>n.id===c.from) && newNodes.some(n=>n.id===c.to));
     return {
       id: uid('p'),
       title: (proj.title || 'Bản đồ') + (titleSuffix || ''),
       view: proj.view || {x:-2600, y:-1750, scale:1},
-      nodes: newNodes
+      nodes: newNodes,
+      connections: newConnections
     };
   }
 
