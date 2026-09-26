@@ -104,9 +104,9 @@
   /* Canvas (mind map) */
   #viewport{
     position:absolute; top:56px; left:0; right:0; bottom:0;
-    overflow:hidden; cursor:grab;
+    overflow:hidden; cursor:default;
   }
-  #viewport.panning{ cursor:grabbing; }
+  #viewport.panning{ cursor:default; }
   #world{
     position:absolute; top:0; left:0;
     transform-origin:0 0;
@@ -126,12 +126,12 @@
     border-radius:0px !important;  /* Strict square box */
     line-height:1.35;
     color:var(--text);
-    cursor:grab;
+    cursor:default;
     user-select:none;
     box-shadow:none !important; /* Completely removed glow and shadow */
     transition:border-color .12s ease;
   }
-  .node:active{ cursor:grabbing; }
+  .node:active{ cursor:default; }
   .node.editing{ cursor:text; }
   .node.selected{
     border-color:var(--node-color, var(--accent)) !important;
@@ -154,17 +154,26 @@
   }
   .node[contenteditable="true"]{ outline:none; }
 
+  .node .node-img-wrap{ position:relative; display:block; margin-bottom:6px; }
   .node .node-img{
-    display:block; max-width:240px; max-height:200px; width:100%; height:auto;
-    object-fit:cover; margin-bottom:6px; border:1px solid var(--line); pointer-events:none;
+    display:block; width:220px; max-width:100%; height:auto;
+    object-fit:cover; border:1px solid var(--line); pointer-events:none;
   }
-  .node.has-image{ padding:8px !important; max-width:260px; }
+  .node.has-image{ padding:8px !important; max-width:520px !important; }
+  .node .img-resize-handle{
+    position:absolute; right:-3px; bottom:-3px; width:13px; height:13px;
+    background:var(--surface); border:2px solid var(--node-color, var(--accent));
+    cursor:nwse-resize; opacity:0; transition:opacity .12s ease;
+    z-index:5;
+  }
+  .node:hover .img-resize-handle, .node.selected .img-resize-handle{ opacity:1; }
+  .node .img-resize-handle:hover{ background:var(--node-color, var(--accent)); }
 
   .node .link-handle{
     position:absolute; right:-7px; top:50%; width:12px; height:12px;
     background:var(--surface); border:2px solid var(--node-color, var(--accent));
     border-radius:50%; transform:translate(50%,-50%);
-    cursor:crosshair; opacity:0; transition:opacity .12s ease, transform .12s ease;
+    cursor:default; opacity:0; transition:opacity .12s ease, transform .12s ease;
     z-index:5;
   }
   .node:hover .link-handle, .node.selected .link-handle{ opacity:1; }
@@ -1152,12 +1161,28 @@
       el.appendChild(badge);
 
       if(n.image){
+        const wrap = document.createElement('div');
+        wrap.className = 'node-img-wrap';
+
         const img = document.createElement('img');
         img.className = 'node-img';
         img.src = n.image;
         img.draggable = false;
         img.alt = n.text || 'Ảnh';
-        el.appendChild(img);
+        img.style.width = (n.imageW || 220) + 'px';
+        wrap.appendChild(img);
+
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'img-resize-handle';
+        resizeHandle.title = 'Kéo để phóng to / thu nhỏ ảnh';
+        resizeHandle.addEventListener('mousedown', (e)=>{
+          e.stopPropagation();
+          e.preventDefault();
+          startImageResize(n, img, e);
+        });
+        wrap.appendChild(resizeHandle);
+
+        el.appendChild(wrap);
       }
 
       const txt = document.createElement('div');
@@ -1224,6 +1249,28 @@
       if(confirm('Xoá đường nối này?')) removeConnection(conn.id);
     });
     svg.appendChild(path);
+  }
+
+  function startImageResize(node, imgEl, e){
+    const proj = getCurrentMapProject();
+    const startX = e.clientX;
+    const startWidth = imgEl.offsetWidth;
+
+    function onMove(ev){
+      const dx = (ev.clientX - startX) / proj.view.scale;
+      const newW = Math.max(60, Math.min(480, Math.round(startWidth + dx)));
+      node.imageW = newW;
+      imgEl.style.width = newW + 'px';
+      redrawLinksOnly();
+      positionToolbar();
+    }
+    function onUp(){
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      save();
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function startConnecting(sourceId, e){
