@@ -1122,10 +1122,24 @@
     });
   }
 
+  let saveWarned = false;
   function save(silent){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if(!silent){
-      statusEl.textContent = 'saved ' + new Date().toLocaleTimeString('en-US');
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if(!silent){
+        statusEl.textContent = 'saved ' + new Date().toLocaleTimeString('en-US');
+      }
+      return true;
+    }catch(err){
+      statusEl.textContent = 'LƯU THẤT BẠI';
+      if(!saveWarned){
+        saveWarned = true;
+        const quota = err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014);
+        alert(quota
+          ? 'Bộ nhớ trình duyệt đã đầy (thường do có nhiều ảnh) nên không lưu được. Dữ liệu vẫn hiện trên màn hình nhưng sẽ MẤT khi tải lại trang. Hãy xuất file sao lưu hoặc xoá bớt ảnh/sơ đồ.'
+          : 'Trình duyệt không cho lưu dữ liệu (có thể đang ở chế độ riêng tư hoặc chặn lưu trữ cho file này). Dữ liệu sẽ MẤT khi tải lại trang. Hãy xuất file sao lưu.');
+      }
+      return false;
     }
   }
 
@@ -1811,6 +1825,44 @@
     }
   });
 
+  // ---- image compression (keeps localStorage small) ----
+  function compressImageDataUrl(dataUrl, maxDim, quality){
+    maxDim = maxDim || 1400; quality = quality || 0.85;
+    return new Promise((resolve)=>{
+      if(!dataUrl || dataUrl.length < 150000){ resolve(dataUrl); return; }   // already small
+      const img = new Image();
+      img.onload = ()=>{
+        try{
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const k = Math.min(1, maxDim / Math.max(w, h));
+          w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          let out = cv.toDataURL('image/webp', quality);
+          if(out.indexOf('data:image/webp') !== 0) out = cv.toDataURL('image/jpeg', quality);
+          resolve(out.length < dataUrl.length ? out : dataUrl);
+        }catch(_){ resolve(dataUrl); }
+      };
+      img.onerror = ()=>resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  // shrink big images already inside a project (used right after import)
+  async function shrinkProjectImages(proj){
+    let changed = false;
+    for(const n of (proj.nodes||[])){
+      if(n.image && n.image.length >= 150000){
+        const out = await compressImageDataUrl(n.image);
+        if(out !== n.image){ n.image = out; changed = true; }
+      }
+    }
+    if(changed){ render(); save(); }
+  }
+
   // ================= COPY / CUT / PASTE / DUPLICATE NODES =================
   let nodeClipboard = null;
   let pasteBump = 0;
@@ -2010,8 +2062,8 @@
     e.preventDefault();
 
     const reader = new FileReader();
-    reader.onload = function(ev){
-      const dataUrl = ev.target.result;
+    reader.onload = async function(ev){
+      const dataUrl = await compressImageDataUrl(ev.target.result);
       const proj = getCurrentMapProject();
       const rect = world.getBoundingClientRect();
       const vpRect = viewport.getBoundingClientRect();
@@ -2912,6 +2964,7 @@
           projects.forEach(p => state.mindmap.projects.push(cloneMapProject(p, '')));
           if(projects.length) state.mindmap.currentProjectId = state.mindmap.projects[state.mindmap.projects.length-1].id;
           save(); switchTab('mindmap');
+          state.mindmap.projects.slice(-projects.length).forEach(shrinkProjectImages);
           alert(`Đã thêm ${projects.length} sơ đồ vào tab MAP.`);
         } else if(tab === 'kanban'){
           const projects = (wrapper.data && wrapper.data.projects) || [];
@@ -2940,6 +2993,7 @@
         if(!wrapper.data){ alert('File sơ đồ không hợp lệ.'); return; }
         const clone = importMapProject(wrapper.data, true);
         save();
+        shrinkProjectImages(clone);
         alert(`Đã thêm sơ đồ "${clone.title}" vào tab MAP.`);
         break;
       }
@@ -2961,10 +3015,21 @@
     if(!file) return;
     const reader = new FileReader();
     reader.onload = (evt)=>{
+      let parsed;
       try{
-        const parsed = JSON.parse(evt.target.result);
+        let text = String(evt.target.result || '');
+        if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip BOM
+        parsed = JSON.parse(text);
+      }catch(err){
+        alert('Lỗi đọc file JSON. File có thể bị hỏng hoặc bị cắt dở khi copy.');
+        return;
+      }
+      try{
         runImport(parsed);
-      }catch(err){ alert('Lỗi đọc file JSON. File có thể bị hỏng.'); }
+      }catch(err){
+        console.error(err);
+        alert('Import lỗi: ' + (err && err.message ? err.message : err));
+      }
     };
     reader.readAsText(file);
     e.target.value = '';
