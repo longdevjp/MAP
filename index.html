@@ -560,11 +560,33 @@
   #financeMonthNav button:hover{ border-color:var(--accent); color:var(--accent); }
   #financeMonthLabel{ font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:500; color:var(--muted); min-width:110px; text-align:center; }
 
-  #financeTotals{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
-  .fsum-card.has-cap{ flex-direction:column; gap:6px; padding:12px 16px; }
-  .fsum-card.carry{ border-left-color:#ffd166; }
-  .fsum-card.carry .fsum-val{ color:#ffd166; }
-  .fsum-cap{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.5px; color:var(--muted); }
+  #financeTotals{ margin-bottom:20px; }
+  .fsum-cap{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1.5px; color:var(--muted); }
+  .ftotal-card{
+    position:relative; overflow:hidden; width:100%;
+    background:linear-gradient(120deg, rgba(0,224,199,0.10), rgba(124,156,255,0.10));
+    border:1px solid var(--line); border-left:3px solid var(--c0);
+    padding:24px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;
+    animation:ftotalPulse 3.5s ease-in-out infinite;
+  }
+  .ftotal-card::after{
+    content:''; position:absolute; top:0; left:-45%; width:40%; height:100%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,0.10), transparent);
+    transform:skewX(-20deg); animation:ftotalSheen 4.5s ease-in-out infinite; pointer-events:none;
+  }
+  .ftotal-val{
+    position:relative; z-index:1;
+    font-family:'JetBrains Mono', monospace; font-size:34px; font-weight:800; letter-spacing:0.5px;
+    color:var(--c0);
+    background:linear-gradient(90deg, var(--c0), var(--c1)); -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; word-break:break-all; text-align:center;
+  }
+  .ftotal-card.neg{ border-left-color:#ff5c7a; background:linear-gradient(120deg, rgba(255,92,122,0.12), rgba(255,157,92,0.08)); }
+  .ftotal-card.neg .ftotal-val{ background:linear-gradient(90deg, #ff5c7a, #ff9d5c); -webkit-background-clip:text; background-clip:text; }
+  @keyframes ftotalSheen{ 0%{ left:-45%; } 55%,100%{ left:130%; } }
+  @keyframes ftotalPulse{ 0%,100%{ border-color:var(--line); } 50%{ border-color:var(--c0); } }
+  .ftotal-card.neg{ animation-name:none; }
+
   #financeSummary{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
   .fsum-card{
     background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:18px 16px;
@@ -770,21 +792,9 @@
     </div>
 
     <div id="financeTotals">
-      <div class="fsum-card carry has-cap" title="DU CAC THANG TRUOC CHUYEN SANG">
-        <div class="fsum-cap">DU DAU THANG</div>
-        <div class="fsum-val" id="financeCarry">0</div>
-      </div>
-      <div class="fsum-card income has-cap">
-        <div class="fsum-cap">TONG THU</div>
-        <div class="fsum-val" id="financeAllIncome">0</div>
-      </div>
-      <div class="fsum-card expense has-cap">
-        <div class="fsum-cap">TONG CHI</div>
-        <div class="fsum-val" id="financeAllExpense">0</div>
-      </div>
-      <div class="fsum-card balance has-cap">
+      <div class="ftotal-card" id="financeTotalCard">
         <div class="fsum-cap">TONG DU</div>
-        <div class="fsum-val" id="financeAllBalance">0</div>
+        <div class="ftotal-val" id="financeAllBalance">0</div>
       </div>
     </div>
 
@@ -2559,6 +2569,21 @@
     return state.finance.transactions.filter(t => (t.date||'').slice(0,7) === mk);
   }
 
+  function animateMoney(el, to){
+    const from = (typeof el._val === 'number') ? el._val : 0;
+    el._val = to;
+    if(from === to){ el.textContent = formatVND(to) + ' đ'; return; }
+    const start = performance.now(), dur = 600;
+    cancelAnimationFrame(el._raf);
+    function step(now){
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      el.textContent = formatVND(from + (to - from) * e) + ' đ';
+      if(t < 1) el._raf = requestAnimationFrame(step);
+    }
+    el._raf = requestAnimationFrame(step);
+  }
+
   function renderFinance(){
     document.getElementById('financeMonthLabel').textContent = financeMonthLabelText(financeMonthCursor);
 
@@ -2569,17 +2594,12 @@
     document.getElementById('financeTotalExpense').textContent = formatVND(totalExpense) + ' đ';
     document.getElementById('financeBalance').textContent = formatVND(totalIncome-totalExpense) + ' đ';
 
-    // cumulative totals (all months) + carry-over from previous months
-    const mk = financeMonthKey(financeMonthCursor);
-    const sumBy = (arr, type)=> arr.filter(t=>t.type===type).reduce((s,t)=>s+Number(t.amount||0),0);
+    // total balance across all months (count-up animation)
     const allTx = state.finance.transactions;
-    const prevTx = allTx.filter(t=>(t.date||'').slice(0,7) < mk);
-    const carry = sumBy(prevTx,'income') - sumBy(prevTx,'expense');
-    const allIncome = sumBy(allTx,'income'), allExpense = sumBy(allTx,'expense');
-    document.getElementById('financeCarry').textContent = formatVND(carry) + ' đ';
-    document.getElementById('financeAllIncome').textContent = formatVND(allIncome) + ' đ';
-    document.getElementById('financeAllExpense').textContent = formatVND(allExpense) + ' đ';
-    document.getElementById('financeAllBalance').textContent = formatVND(allIncome-allExpense) + ' đ';
+    const allBal = allTx.reduce((sum,t)=> sum + (t.type==='income' ? 1 : -1) * Number(t.amount||0), 0);
+    const balEl = document.getElementById('financeAllBalance');
+    document.getElementById('financeTotalCard').classList.toggle('neg', allBal < 0);
+    animateMoney(balEl, allBal);
 
     let list = monthTx;
     if(financeTypeFilter !== 'all') list = list.filter(t=>t.type===financeTypeFilter);
