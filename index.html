@@ -437,6 +437,130 @@
     border:1px dashed var(--line); border-radius:0px; margin-top:8px;
   }
 
+  /* ===== Kanban card extras ===== */
+  .kcard{ cursor:pointer; }
+  .kcard .ktext{ cursor:pointer; }
+  .kcard.kdone{ opacity:.7; border-left-color:#3ddc84; }
+  .kcard.kdone .ktext{ text-decoration:line-through; color:var(--muted); }
+  .kbadges{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .kbadge{
+    font-family:'JetBrains Mono',monospace; font-size:10px; padding:1px 6px;
+    border:1px solid var(--line); color:var(--muted); letter-spacing:.3px;
+  }
+  .kbadge.linked{ color:var(--c1); border-color:var(--c1); }
+  .kbadge.done{ color:#05131a; background:#3ddc84; border-color:#3ddc84; font-weight:700; }
+
+  /* ===== Card detail modal ===== */
+  #cardModal{
+    position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center;
+    background:rgba(5,8,13,.72); padding:20px;
+  }
+  #cmBox{
+    width:100%; max-width:560px; max-height:92vh; overflow-y:auto;
+    background:var(--surface); border:2px solid var(--line); border-top:3px solid var(--cm-color, var(--accent));
+    padding:20px 22px 18px;
+  }
+  #cmTop{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  #cmCrumb{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+  #cmClose{ background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1; }
+  #cmClose:hover{ color:#ff5c7a; }
+  #cmTitle{
+    width:100%; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:18px; font-weight:600; padding:10px 12px; outline:none;
+  }
+  #cmTitle:focus, #cmDesc:focus{ border-color:var(--accent); }
+  .cm-label{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--muted);
+    letter-spacing:.6px; margin:16px 0 6px;
+  }
+  #cmDesc{
+    width:100%; min-height:130px; resize:vertical; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--text); font-family:inherit; font-size:13.5px; line-height:1.5; padding:10px 12px; outline:none;
+  }
+  #cmColors{ display:flex; gap:8px; }
+  #cmColors span{ width:22px; height:22px; cursor:pointer; border:2px solid transparent; }
+  #cmColors span.active{ border-color:var(--text); }
+  #cmLink{ border:1px dashed var(--line); padding:12px; background:var(--surface-2); }
+  .cm-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .cm-row select, .cm-row input[type=date]{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:12.5px; padding:8px; outline:none;
+  }
+  .cm-status{ font-size:13px; margin-bottom:10px; }
+  .cm-status b{ font-family:'JetBrains Mono',monospace; }
+  .cm-status .ok{ color:#3ddc84; } .cm-status .wip{ color:var(--c2); }
+  .cm-hint{ font-size:12px; color:var(--muted); margin:0 0 10px; line-height:1.45; }
+  #cmFoot{ display:flex; justify-content:space-between; margin-top:18px; }
+  .btn.ok{ background:#3ddc84; color:#05201c; border-color:#3ddc84; font-weight:600; }
+  .btn.ok:hover{ color:#05201c; filter:brightness(1.1); }
+
+  /* ===== TODO sub tabs ===== */
+  #todoSubTabs{ display:flex; gap:4px; margin-bottom:22px; border-bottom:1px solid var(--line); }
+  #todoSubTabs button{
+    background:transparent; border:none; color:var(--muted); font-family:inherit; font-size:13px; font-weight:500;
+    padding:10px 18px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  #todoSubTabs button.active{ color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+  #todoSubTabs button:not(.active):hover{ color:var(--text); }
+  .tlink{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--c1); border:1px solid var(--c1);
+    padding:1px 7px; cursor:pointer; max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tlink:hover{ background:var(--c1); color:#05131a; }
+  .tdesc{ font-size:12px; color:var(--muted); margin-top:5px; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
+
+  /* ===== Habits ===== */
+  #habitHeader{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  #habitHeader h2{ font-size:20px; margin:0; font-weight:700; }
+  #habitSummary{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); }
+  #habitAddRow{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  #habitInput{
+    flex:1; min-width:200px; background:var(--surface); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:14px; padding:11px 14px; outline:none;
+  }
+  #habitInput:focus{ border-color:var(--accent); }
+  #habitColor{
+    background:var(--surface); border:1px solid var(--line); color:var(--text);
+    font-family:inherit; font-size:13px; padding:10px; outline:none;
+  }
+  #habitList{ display:flex; flex-direction:column; gap:12px; }
+  #habitEmpty{
+    display:none; text-align:center; color:var(--muted); font-size:13px; padding:40px 10px;
+    border:1px dashed var(--line); margin-top:8px; line-height:1.6;
+  }
+  .hitem{
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--h-color, var(--accent));
+    padding:14px 16px;
+  }
+  .hhead{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .hstreak{ text-align:center; min-width:74px; }
+  .hstreak-num{ font-family:'JetBrains Mono',monospace; font-size:34px; font-weight:700; color:var(--h-color, var(--accent)); line-height:1; }
+  .hstreak-lbl{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); margin-top:4px; letter-spacing:.4px; }
+  .hmain{ flex:1; min-width:160px; }
+  .hname{ font-size:16px; font-weight:600; outline:none; word-break:break-word; padding:2px 0; }
+  .hnote{ font-size:12.5px; color:var(--muted); outline:none; margin-top:3px; word-break:break-word; min-height:16px; }
+  .hnote:empty:before{ content:attr(data-ph); opacity:.5; }
+  .hcheck{ min-width:170px; justify-content:center; border-color:var(--h-color, var(--accent)); color:var(--h-color, var(--accent)); font-weight:600; }
+  .hcheck.is-done{ background:var(--h-color, var(--accent)); color:#05131a; }
+  .hstats{ display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 10px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+  .hstats b{ color:var(--text); }
+  .hstats .hwarn{ color:var(--c2); }
+  .hdays{ display:grid; grid-template-columns:repeat(14, minmax(0,1fr)); gap:4px; }
+  .hday{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--muted); cursor:pointer;
+    padding:5px 0; display:flex; flex-direction:column; align-items:center; gap:2px;
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+  }
+  .hday b{ font-size:12px; font-weight:600; }
+  .hday:hover{ border-color:var(--h-color, var(--accent)); }
+  .hday.on{ background:var(--h-color, var(--accent)); border-color:var(--h-color, var(--accent)); color:#05131a; }
+  .hday.today{ box-shadow:inset 0 -3px 0 0 var(--text); }
+  .hactions{ display:flex; align-items:center; gap:8px; margin-top:12px; }
+  .hactions .hsw{ width:14px; height:14px; cursor:pointer; border:2px solid transparent; }
+  .hactions .hsw.active{ border-color:var(--text); }
+  .hactions .btn{ margin-left:auto; padding:5px 10px; font-size:11px; }
+  @media (max-width:560px){ .hday span{ display:none; } .hcheck{ width:100%; } }
+
   /* Daily Check-in */
   #checkinView{
     position:absolute; top:56px; left:0; right:0; bottom:0;
@@ -696,6 +820,12 @@
 
 <div id="todoView">
   <div id="todoPanel">
+    <div id="todoSubTabs">
+      <button class="active" data-sub="tasks">TASKS</button>
+      <button data-sub="habits">HABITS · CHUỖI NGÀY</button>
+    </div>
+
+    <div id="todoTasksPane">
     <div id="todoHeader">
       <h2>TASK</h2>
       <div id="todoProgressWrap">
@@ -725,6 +855,26 @@
 
     <ul id="todoList"></ul>
     <div id="todoEmpty">No tasks yet. Add your first task above.</div>
+    </div>
+
+    <div id="habitsPane" style="display:none">
+      <div id="habitHeader">
+        <h2>HABIT</h2>
+        <span id="habitSummary">0/0 hôm nay</span>
+      </div>
+      <div id="habitAddRow">
+        <input type="text" id="habitInput" placeholder="Nhiệm vụ lặp lại mỗi ngày, vd: Học tiếng Anh">
+        <select id="habitColor" title="Màu">
+          <option value="0">TEAL</option>
+          <option value="1">BLUE</option>
+          <option value="2">ORANGE</option>
+          <option value="3">PINK</option>
+        </select>
+        <button class="btn primary" id="habitAddBtn">ADD</button>
+      </div>
+      <div id="habitList"></div>
+      <div id="habitEmpty">Chưa có thói quen nào.<br>Thêm một nhiệm vụ như "Học tiếng Anh", mỗi ngày bấm CHECK để tăng chuỗi.</div>
+    </div>
   </div>
 </div>
 
@@ -865,6 +1015,26 @@
   <button id="zoomReset" title="Reset View">Reset</button>
 </div>
 
+<div id="cardModal">
+  <div id="cmBox">
+    <div id="cmTop">
+      <span id="cmCrumb"></span>
+      <button id="cmClose" title="Đóng (Esc)">×</button>
+    </div>
+    <input type="text" id="cmTitle" placeholder="Tiêu đề thẻ">
+    <div class="cm-label"></div>
+    <textarea id="cmDesc" placeholder=""></textarea>
+    <div class="cm-label"></div>
+    <div id="cmColors"></div>
+    <div class="cm-label"></div>
+    <div id="cmLink"></div>
+    <div id="cmFoot">
+      <button class="btn danger" id="cmDelete">XOÁ THẺ</button>
+      <button class="btn primary" id="cmDone">XONG</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const COLORS = ['#00e0c7','#7c9cff','#ff9d5c','#ff5c9d'];
@@ -949,7 +1119,7 @@
           }
         ]
       },
-      todo: { tasks: [] },
+      todo: { tasks: [], habits: [] },
       checkin: { entries: {} },
       finance: { transactions: [] }
     };
@@ -1012,6 +1182,15 @@
 
     if(!parsed.todo) parsed.todo = defaultData().todo;
     if(!Array.isArray(parsed.todo.tasks)) parsed.todo.tasks = [];
+    if(!Array.isArray(parsed.todo.habits)) parsed.todo.habits = [];
+    parsed.todo.habits = parsed.todo.habits.map(h => ({
+      id: h.id || uid('h'),
+      name: h.name || 'Thói quen',
+      note: h.note || '',
+      color: Number(h.color) || 0,
+      createdAt: h.createdAt || '',
+      logs: (h.logs && typeof h.logs === 'object') ? h.logs : {}
+    }));
     if(!parsed.checkin) parsed.checkin = defaultData().checkin;
     if(!parsed.checkin.entries) parsed.checkin.entries = {};
     if(!parsed.finance) parsed.finance = defaultData().finance;
@@ -1165,7 +1344,7 @@
     } else if(activeTab==='todo'){
       viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
       todoView.style.display='block';
-      renderTodo();
+      setTodoSub(todoSub);
     } else if(activeTab==='checkin'){
       viewport.style.display='none'; zoomctl.style.display='none'; mapTabsBar.style.display='none';
       checkinView.style.display='block';
@@ -2113,7 +2292,7 @@
       colEl.innerHTML = `
         <div class="kcol-head">
           <div class="kcol-dot"></div>
-          <input type="text" class="kcol-title" value="${col.title}">
+          <input type="text" class="kcol-title" value="${esc(col.title)}">
           <span class="kcol-count">${cids.length}</span>
           <button class="kcol-del">X</button>
         </div>
@@ -2130,8 +2309,18 @@
         cardEl.dataset.id = card.id;
         cardEl.style.setProperty('--card-color', COLORS[card.color||0]);
 
+        const linkedTask = getLinkedTask(card);
+        const isDone = !!(linkedTask && linkedTask.done);
+        if(isDone) cardEl.classList.add('kdone');
+        let badgesHtml = '';
+        if(card.desc && card.desc.trim()) badgesHtml += '<span class="kbadge" title="Thẻ có mô tả">≡ MÔ TẢ</span>';
+        if(linkedTask) badgesHtml += isDone
+          ? '<span class="kbadge done">✓ HOÀN THÀNH</span>'
+          : '<span class="kbadge linked">⧉ ĐANG Ở TODO</span>';
+
         cardEl.innerHTML = `
-          <div class="ktext" contenteditable="true">${card.text}</div>
+          <div class="ktext">${esc(card.text)}</div>
+          ${badgesHtml ? `<div class="kbadges">${badgesHtml}</div>` : ''}
           <div class="kcard-actions">
             <span class="kswatch" data-c="0" style="background:#00e0c7"></span>
             <span class="kswatch" data-c="1" style="background:#7c9cff"></span>
@@ -2152,18 +2341,14 @@
         });
 
         // Delete Card
-        cardEl.querySelector('.kdel').addEventListener('click', ()=>{
+        cardEl.querySelector('.kdel').addEventListener('click', (e)=>{
+          e.stopPropagation();
           proj.cards = proj.cards.filter(x=>x.id!==card.id);
           save(); renderKanban();
         });
 
-        // Edit Card text
-        const kt = cardEl.querySelector('.ktext');
-        kt.addEventListener('blur', ()=>{
-          card.text = kt.textContent.trim() || 'Empty Card';
-          save();
-        });
-        kt.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); kt.blur(); } });
+        // Click card -> open detail modal (title, description, TODO link)
+        cardEl.addEventListener('click', ()=>{ openCardModal(proj.id, card.id); });
 
         // Drag events
         cardEl.addEventListener('dragstart', (e)=>{
@@ -2291,6 +2476,279 @@
   }
 
 
+  // ================= HELPERS =================
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function findKanbanCard(projId, cardId){
+    const proj = state.kanban.projects.find(p => p.id === projId);
+    if(!proj) return null;
+    const card = proj.cards.find(c => c.id === cardId);
+    return card ? { proj, card } : null;
+  }
+  function getLinkedTask(card){
+    if(!card || !card.todoId) return null;
+    return state.todo.tasks.find(t => t.id === card.todoId) || null;
+  }
+
+  // ================= CARD DETAIL MODAL =================
+  const cardModal = document.getElementById('cardModal');
+  const cmTitle = document.getElementById('cmTitle');
+  const cmDesc = document.getElementById('cmDesc');
+  let cardModalCtx = null;
+
+  function openCardModal(projId, cardId){
+    const f = findKanbanCard(projId, cardId);
+    if(!f) return;
+    cardModalCtx = { projId, cardId };
+    cmTitle.value = f.card.text || '';
+    cmDesc.value = f.card.desc || '';
+    renderCardModal();
+    cardModal.style.display = 'flex';
+  }
+
+  function closeCardModal(){
+    if(!cardModalCtx) return;
+    cardModal.style.display = 'none';
+    cardModalCtx = null;
+    if(activeTab === 'kanban') renderKanban();
+    if(activeTab === 'todo') renderTodo();
+  }
+
+  function renderCardModal(){
+    const f = cardModalCtx && findKanbanCard(cardModalCtx.projId, cardModalCtx.cardId);
+    if(!f) return;
+    const { proj, card } = f;
+    const col = proj.columns.find(c => c.id === card.columnId);
+    document.getElementById('cmCrumb').textContent = proj.title + '  ›  ' + (col ? col.title : '');
+    document.getElementById('cmBox').style.setProperty('--cm-color', COLORS[card.color||0]);
+
+    // colors
+    const cw = document.getElementById('cmColors');
+    cw.innerHTML = '';
+    COLORS.forEach((c, i) => {
+      const sw = document.createElement('span');
+      sw.style.background = c;
+      if((card.color||0) === i) sw.classList.add('active');
+      sw.addEventListener('click', () => { card.color = i; save(); renderCardModal(); });
+      cw.appendChild(sw);
+    });
+
+    // todo link
+    const box = document.getElementById('cmLink');
+    const task = getLinkedTask(card);
+    if(!task){
+      box.innerHTML = `
+        <div class="cm-row">
+          <select id="cmPr">
+            <option value="1">HIGH</option>
+            <option value="2" selected>MEDIUM</option>
+            <option value="3">LOW</option>
+          </select>
+          <input type="date" id="cmDue" title="Hạn hoàn thành (không bắt buộc)">
+          <button class="btn primary" id="cmSend">ADD TODO</button>
+        </div>`;
+      box.querySelector('#cmSend').addEventListener('click', () => {
+        const t = {
+          id: uid('t'),
+          text: card.text,
+          priority: box.querySelector('#cmPr').value,
+          due: box.querySelector('#cmDue').value,
+          done: false,
+          cardId: card.id,
+          projectId: proj.id
+        };
+        state.todo.tasks.push(t);
+        card.todoId = t.id;
+        save(); renderCardModal();
+      });
+    } else {
+      box.innerHTML = `
+        <div class="cm-status">Trạng thái ở TODO:
+          ${task.done ? '<b class="ok">✓ ĐÃ HOÀN THÀNH</b>' : '<b class="wip">● ĐANG THỰC HIỆN</b>'}
+          ${task.due ? ' · hạn <b>' + esc(task.due) + '</b>' : ''}
+        </div>
+        <div class="cm-row">
+          <button class="btn ${task.done ? '' : 'ok'}" id="cmToggle">${task.done ? 'MỞ LẠI VIỆC NÀY' : '✓ ĐÁNH DẤU HOÀN THÀNH'}</button>
+          <button class="btn" id="cmGoTodo">XEM Ở TODO</button>
+          <button class="btn danger" id="cmUnlink">GỠ KHỎI TODO</button>
+        </div>`;
+      box.querySelector('#cmToggle').addEventListener('click', () => { task.done = !task.done; save(); renderCardModal(); });
+      box.querySelector('#cmGoTodo').addEventListener('click', () => { closeCardModal(); todoSub = 'tasks'; switchTab('todo'); });
+      box.querySelector('#cmUnlink').addEventListener('click', () => {
+        if(!confirm('Gỡ việc này khỏi TODO? (Việc ở TODO sẽ bị xoá, thẻ Trello vẫn giữ nguyên)')) return;
+        state.todo.tasks = state.todo.tasks.filter(x => x.id !== task.id);
+        card.todoId = null;
+        save(); renderCardModal();
+      });
+    }
+  }
+
+  cmTitle.addEventListener('input', () => {
+    const f = cardModalCtx && findKanbanCard(cardModalCtx.projId, cardModalCtx.cardId);
+    if(!f) return;
+    f.card.text = cmTitle.value.trim() || 'Empty Card';
+    const t = getLinkedTask(f.card);
+    if(t) t.text = f.card.text;
+    save(true);
+  });
+  cmDesc.addEventListener('input', () => {
+    const f = cardModalCtx && findKanbanCard(cardModalCtx.projId, cardModalCtx.cardId);
+    if(!f) return;
+    f.card.desc = cmDesc.value;
+    save(true);
+  });
+  document.getElementById('cmClose').addEventListener('click', closeCardModal);
+  document.getElementById('cmDone').addEventListener('click', closeCardModal);
+  cardModal.addEventListener('mousedown', (e) => { if(e.target === cardModal) closeCardModal(); });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && cardModalCtx) closeCardModal();
+  });
+  document.getElementById('cmDelete').addEventListener('click', () => {
+    const f = cardModalCtx && findKanbanCard(cardModalCtx.projId, cardModalCtx.cardId);
+    if(!f) return;
+    if(!confirm('Xoá thẻ này?')) return;
+    f.proj.cards = f.proj.cards.filter(c => c.id !== f.card.id);
+    save();
+    closeCardModal();
+  });
+
+  // ================= TODO SUB TABS =================
+  let todoSub = 'tasks';
+  function setTodoSub(sub){
+    todoSub = sub;
+    document.querySelectorAll('#todoSubTabs button').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+    document.getElementById('todoTasksPane').style.display = sub === 'tasks' ? 'block' : 'none';
+    document.getElementById('habitsPane').style.display = sub === 'habits' ? 'block' : 'none';
+    if(sub === 'habits') renderHabits(); else renderTodo();
+  }
+  document.querySelectorAll('#todoSubTabs button').forEach(b => {
+    b.addEventListener('click', () => setTodoSub(b.dataset.sub));
+  });
+
+  // ================= HABITS (daily streaks) =================
+  const WEEKDAYS = ['CN','T2','T3','T4','T5','T6','T7'];
+
+  function habitStats(h){
+    const logs = h.logs || {};
+    const keys = Object.keys(logs).filter(k => logs[k]).sort();
+    const total = keys.length;
+    let current = 0;
+    const c = new Date();
+    if(!logs[keyFromDate(c)]) c.setDate(c.getDate() - 1);
+    while(logs[keyFromDate(c)]){ current++; c.setDate(c.getDate() - 1); }
+    let best = 0, run = 0;
+    for(let i = 0; i < keys.length; i++){
+      if(i > 0){
+        const diff = Math.round((new Date(keys[i] + 'T00:00:00') - new Date(keys[i-1] + 'T00:00:00')) / 86400000);
+        run = diff === 1 ? run + 1 : 1;
+      } else run = 1;
+      if(run > best) best = run;
+    }
+    return { current, best, total };
+  }
+
+  function renderHabits(){
+    const list = document.getElementById('habitList');
+    const habits = state.todo.habits;
+    list.innerHTML = '';
+    document.getElementById('habitEmpty').style.display = habits.length ? 'none' : 'block';
+    const tk = todayKey();
+    const doneToday = habits.filter(h => h.logs[tk]).length;
+    document.getElementById('habitSummary').textContent = `${doneToday}/${habits.length} hôm nay`;
+
+    habits.forEach(h => {
+      const st = habitStats(h);
+      const done = !!h.logs[tk];
+      const el = document.createElement('div');
+      el.className = 'hitem' + (done ? ' done' : '');
+      el.style.setProperty('--h-color', COLORS[h.color || 0] || COLORS[0]);
+      el.innerHTML = `
+        <div class="hhead">
+          <div class="hstreak"><div class="hstreak-num">${st.current}</div><div class="hstreak-lbl">NGÀY LIÊN TIẾP</div></div>
+          <div class="hmain">
+            <div class="hname" contenteditable="true" spellcheck="false">${esc(h.name)}</div>
+            <div class="hnote" contenteditable="true" spellcheck="false" data-ph="Thêm ghi chú / mục tiêu...">${esc(h.note || '')}</div>
+          </div>
+          <button class="btn hcheck ${done ? 'is-done' : ''}">${done ? '✓ ĐÃ XONG HÔM NAY' : 'CHECK HÔM NAY'}</button>
+        </div>
+        <div class="hstats">
+          <span>DÀI NHẤT <b>${st.best}</b> ngày</span>
+          <span>TỔNG <b>${st.total}</b> ngày</span>
+          ${(!done && st.current > 0) ? '<span class="hwarn">Check hôm nay để giữ chuỗi!</span>' : ''}
+        </div>
+        <div class="hdays"></div>
+        <div class="hactions"></div>`;
+
+      // check today
+      el.querySelector('.hcheck').addEventListener('click', () => {
+        if(h.logs[tk]) delete h.logs[tk]; else h.logs[tk] = true;
+        save(); renderHabits();
+      });
+
+      // inline edit name / note
+      const hn = el.querySelector('.hname');
+      hn.addEventListener('blur', () => { h.name = hn.textContent.trim() || 'Thói quen'; save(); });
+      hn.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); hn.blur(); } });
+      const ho = el.querySelector('.hnote');
+      ho.addEventListener('blur', () => { h.note = ho.textContent.trim(); save(); });
+      ho.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); ho.blur(); } });
+
+      // last 14 days (click to toggle / backfill)
+      const days = el.querySelector('.hdays');
+      for(let i = 13; i >= 0; i--){
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = keyFromDate(d);
+        const cell = document.createElement('button');
+        cell.className = 'hday' + (h.logs[key] ? ' on' : '') + (i === 0 ? ' today' : '');
+        cell.title = key + (h.logs[key] ? ' — đã làm' : ' — chưa làm');
+        cell.innerHTML = `<span>${WEEKDAYS[d.getDay()]}</span><b>${d.getDate()}</b>`;
+        cell.addEventListener('click', () => {
+          if(h.logs[key]) delete h.logs[key]; else h.logs[key] = true;
+          save(); renderHabits();
+        });
+        days.appendChild(cell);
+      }
+
+      // color + delete
+      const act = el.querySelector('.hactions');
+      COLORS.forEach((c, i) => {
+        const sw = document.createElement('span');
+        sw.className = 'hsw' + ((h.color || 0) === i ? ' active' : '');
+        sw.style.background = c;
+        sw.addEventListener('click', () => { h.color = i; save(); renderHabits(); });
+        act.appendChild(sw);
+      });
+      const del = document.createElement('button');
+      del.className = 'btn danger';
+      del.textContent = 'XOÁ';
+      del.addEventListener('click', () => {
+        if(confirm(`Xoá thói quen "${h.name}" cùng toàn bộ lịch sử chuỗi ngày?`)){
+          state.todo.habits = state.todo.habits.filter(x => x.id !== h.id);
+          save(); renderHabits();
+        }
+      });
+      act.appendChild(del);
+
+      list.appendChild(el);
+    });
+  }
+
+  function addHabit(){
+    const input = document.getElementById('habitInput');
+    const name = input.value.trim();
+    if(!name) return;
+    state.todo.habits.push({
+      id: uid('h'), name, note: '',
+      color: Number(document.getElementById('habitColor').value) || 0,
+      createdAt: todayKey(), logs: {}
+    });
+    input.value = '';
+    save(); renderHabits();
+  }
+  document.getElementById('habitAddBtn').addEventListener('click', addHabit);
+  document.getElementById('habitInput').addEventListener('keydown', e => { if(e.key === 'Enter') addHabit(); });
+
   // ================= TODO LIST =================
   function renderTodo(){
     todoList.innerHTML = '';
@@ -2316,14 +2774,19 @@
 
       const prText = task.priority==='1' ? 'High' : task.priority==='3' ? 'Low' : 'Medium';
 
+      const srcCard = task.cardId ? findKanbanCard(task.projectId, task.cardId) : null;
+      const srcDesc = srcCard && srcCard.card.desc ? srcCard.card.desc.trim() : '';
+
       li.innerHTML = `
         <div class="tcheck">${task.done?'✓':''}</div>
         <div class="tbody">
-          <div class="ttext" contenteditable="true">${task.text}</div>
+          <div class="ttext" contenteditable="true">${esc(task.text)}</div>
           <div class="tmeta">
             <span class="tpr-tag">${prText}</span>
-            ${task.due ? `<span class="tdue">${task.due}</span>` : ''}
+            ${task.due ? `<span class="tdue">${esc(task.due)}</span>` : ''}
+            ${srcCard ? `<span class="tlink" title="Mở thẻ trong TRELLO">TRELLO · ${esc(srcCard.proj.title)} › ${esc(srcCard.card.text)}</span>` : ''}
           </div>
+          ${srcDesc ? `<div class="tdesc">${esc(srcDesc.length>140 ? srcDesc.slice(0,140)+'…' : srcDesc)}</div>` : ''}
         </div>
         <button class="tdel">Delete</button>
       `;
@@ -2334,6 +2797,13 @@
       li.querySelector('.tdel').addEventListener('click', ()=>{
         state.todo.tasks = state.todo.tasks.filter(x=>x.id!==task.id);
         save(); renderTodo();
+      });
+
+      const tl = li.querySelector('.tlink');
+      if(tl) tl.addEventListener('click', ()=>{
+        state.kanban.currentProjectId = srcCard.proj.id;
+        switchTab('kanban');
+        openCardModal(srcCard.proj.id, srcCard.card.id);
       });
 
       const tt = li.querySelector('.ttext');
@@ -2880,6 +3350,7 @@
     });
     const newCards = (proj.cards||[]).map(c=> Object.assign({}, c, {
       id: uid('k'),
+      todoId: null,
       columnId: colMap[c.columnId] || (newColumns[0] && newColumns[0].id) || null
     }));
     return {
@@ -2908,7 +3379,16 @@
 
   function importTodoTasks(todoData){
     (todoData.tasks||[]).forEach(t=>{
-      state.todo.tasks.push(Object.assign({}, t, { id: uid('t') }));
+      const c = Object.assign({}, t, { id: uid('t') });
+      delete c.cardId; delete c.projectId; // links to Trello cards don't survive an import
+      state.todo.tasks.push(c);
+    });
+    (todoData.habits||[]).forEach(h=>{
+      state.todo.habits.push({
+        id: uid('h'), name: h.name || 'Thói quen', note: h.note || '',
+        color: Number(h.color) || 0, createdAt: h.createdAt || '',
+        logs: (h.logs && typeof h.logs === 'object') ? Object.assign({}, h.logs) : {}
+      });
     });
   }
 
