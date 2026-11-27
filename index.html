@@ -711,21 +711,22 @@
   @keyframes ftotalPulse{ 0%,100%{ border-color:var(--line); } 50%{ border-color:var(--c0); } }
   .ftotal-card.neg{ animation-name:none; }
 
-  /* Savings (tien tiet kiem - khong tieu) */
+  /* Savings (tiet kiem) */
   .fsave-card{
     margin-top:12px; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--c1);
     padding:16px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;
   }
   .fsave-val{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:800; color:var(--c1); word-break:break-all; text-align:center; }
-  .fsave-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; }
+  .fsave-row{ display:flex; gap:8px; justify-content:center; width:100%; }
   #financeSavingsAmount{
     width:170px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
     padding:8px 10px; font-family:inherit; font-size:13px; outline:none; border-radius:0px;
   }
   #financeSavingsAmount:focus{ border-color:var(--accent); }
-  .fsave-row .btn{ padding:7px 12px; font-size:12px; }
-  .fsave-total{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted); letter-spacing:0.5px; text-align:center; }
-  .fsave-total b{ color:var(--c0); font-weight:700; }
+  .fsave-row .btn{ padding:7px 16px; font-size:14px; font-weight:700; }
+  .fitem-amt.saving_in{ color:var(--c1); }
+  .fitem-amt.saving_out{ color:var(--c1); }
+  .fitem-tag{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; color:var(--c1); flex-shrink:0; }
 
   #financeSummary{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
   .fsum-card{
@@ -963,15 +964,13 @@
         <div class="ftotal-val" id="financeAllBalance">0</div>
       </div>
       <div class="fsave-card">
-        <div class="fsum-cap">TIEN TIET KIEM (KHONG TIEU)</div>
+        <div class="fsum-cap">TIET KIEM</div>
         <div class="fsave-val" id="financeSavings">0 đ</div>
         <div class="fsave-row">
-          <input type="number" id="financeSavingsAmount" placeholder="So tien" min="0" step="1000">
-          <button class="btn" id="financeSavingsAdd" title="Gui them vao tiet kiem">+ GUI</button>
-          <button class="btn" id="financeSavingsSub" title="Rut bot tu tiet kiem">- RUT</button>
-          <button class="btn" id="financeSavingsSet" title="Dat lai dung bang so nay">= DAT</button>
+          <input type="number" id="financeSavingsAmount" min="0" step="1000">
+          <button class="btn" id="financeSavingsAdd">+</button>
+          <button class="btn" id="financeSavingsSub">−</button>
         </div>
-        <div class="fsave-total">TONG TAI SAN (DU + TIET KIEM): <b id="financeGrandTotal">0 đ</b></div>
       </div>
     </div>
 
@@ -995,6 +994,7 @@
         <option value="all">TAT CA</option>
         <option value="income">THU NHAP</option>
         <option value="expense">CHI TIEU</option>
+        <option value="saving">TIET KIEM</option>
       </select>
       <div id="financeSpacer"></div>
     </div>
@@ -1148,7 +1148,7 @@
       },
       todo: { tasks: [], habits: [] },
       checkin: { entries: {} },
-      finance: { transactions: [], savings: 0 }
+      finance: { transactions: [] }
     };
   }
 
@@ -1222,7 +1222,6 @@
     if(!parsed.checkin.entries) parsed.checkin.entries = {};
     if(!parsed.finance) parsed.finance = defaultData().finance;
     if(!Array.isArray(parsed.finance.transactions)) parsed.finance.transactions = [];
-    parsed.finance.savings = Math.max(0, Number(parsed.finance.savings) || 0);
     return parsed;
   }
 
@@ -3134,6 +3133,16 @@
     el._raf = requestAnimationFrame(step);
   }
 
+  // +1 = tang tong du, -1 = giam tong du
+  function txSign(t){ return (t.type==='income' || t.type==='saving_out') ? 1 : -1; }
+  function getSavingsTotal(){
+    return state.finance.transactions.reduce((s,t)=>{
+      if(t.type==='saving_in') return s + Number(t.amount||0);
+      if(t.type==='saving_out') return s - Number(t.amount||0);
+      return s;
+    }, 0);
+  }
+
   function renderFinance(){
     document.getElementById('financeMonthLabel').textContent = financeMonthLabelText(financeMonthCursor);
 
@@ -3142,22 +3151,20 @@
     const totalExpense = monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount||0),0);
     document.getElementById('financeTotalIncome').textContent = formatVND(totalIncome) + ' đ';
     document.getElementById('financeTotalExpense').textContent = formatVND(totalExpense) + ' đ';
-    document.getElementById('financeBalance').textContent = formatVND(totalIncome-totalExpense) + ' đ';
+    const monthBal = monthTx.reduce((sum,t)=> sum + txSign(t) * Number(t.amount||0), 0);
+    document.getElementById('financeBalance').textContent = formatVND(monthBal) + ' đ';
 
     // total balance across all months (count-up animation)
     const allTx = state.finance.transactions;
-    const allBal = allTx.reduce((sum,t)=> sum + (t.type==='income' ? 1 : -1) * Number(t.amount||0), 0);
+    const allBal = allTx.reduce((sum,t)=> sum + txSign(t) * Number(t.amount||0), 0);
     const balEl = document.getElementById('financeAllBalance');
     document.getElementById('financeTotalCard').classList.toggle('neg', allBal < 0);
     animateMoney(balEl, allBal);
-
-    // savings (money kept aside, not spent) + grand total
-    const savings = Math.max(0, Number(state.finance.savings) || 0);
-    animateMoney(document.getElementById('financeSavings'), savings);
-    document.getElementById('financeGrandTotal').textContent = formatVND(allBal + savings) + ' đ';
+    animateMoney(document.getElementById('financeSavings'), Math.max(0, getSavingsTotal()));
 
     let list = monthTx;
-    if(financeTypeFilter !== 'all') list = list.filter(t=>t.type===financeTypeFilter);
+    if(financeTypeFilter === 'saving') list = list.filter(t=>t.type==='saving_in' || t.type==='saving_out');
+    else if(financeTypeFilter !== 'all') list = list.filter(t=>t.type===financeTypeFilter);
     list = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
 
     financeList.innerHTML = '';
@@ -3166,8 +3173,9 @@
     list.forEach(tx=>{
       const li = document.createElement('li');
       li.className = 'fitem';
-      li.style.setProperty('--f-color', tx.type==='income' ? '#00e0c7' : '#ff5c7a');
-      const sign = tx.type==='income' ? '+' : '−';
+      const isSaving = tx.type==='saving_in' || tx.type==='saving_out';
+      li.style.setProperty('--f-color', isSaving ? 'var(--c1)' : (tx.type==='income' ? '#00e0c7' : '#ff5c7a'));
+      const sign = txSign(tx) > 0 ? '+' : '−';
       li.innerHTML = `
         <div class="fitem-body">
           <div class="fitem-top">
@@ -3175,6 +3183,7 @@
             <button class="fdel" title="XOA">XOA</button>
           </div>
           <div class="fitem-note">
+            ${isSaving ? '<span class="fitem-tag">TIET KIEM</span>' : ''}
             ${tx.note ? `<span class="fitem-note-text">${tx.note}</span>` : ''}
             <span class="fitem-date">${tx.date}</span>
           </div>
@@ -3242,22 +3251,20 @@
   })();
 
   // ================= EXPORT (per-tab / per-item) =================
-  function updateSavings(mode){
+  function addSavingsTransaction(type){
     const input = document.getElementById('financeSavingsAmount');
-    const v = Number(input.value);
-    if(!isFinite(v) || v < 0 || input.value === '') return;
-    let cur = Math.max(0, Number(state.finance.savings) || 0);
-    if(mode === 'add') cur += v;
-    else if(mode === 'sub') cur = Math.max(0, cur - v);
-    else cur = v;
-    state.finance.savings = cur;
+    const amount = Number(input.value);
+    if(!amount || amount<=0){ input.focus(); return; }
+    if(type==='saving_out' && amount > getSavingsTotal()){ input.focus(); return; }
+    state.finance.transactions.push({
+      id: uid('f'), type: type, amount: amount, date: todayKey(), note: '', createdAt: Date.now()
+    });
     input.value = '';
     save(); renderFinance();
   }
-  document.getElementById('financeSavingsAdd').addEventListener('click', ()=>updateSavings('add'));
-  document.getElementById('financeSavingsSub').addEventListener('click', ()=>updateSavings('sub'));
-  document.getElementById('financeSavingsSet').addEventListener('click', ()=>updateSavings('set'));
-  document.getElementById('financeSavingsAmount').addEventListener('keydown', (e)=>{ if(e.key==='Enter') updateSavings('add'); });
+  document.getElementById('financeSavingsAdd').addEventListener('click', ()=>addSavingsTransaction('saving_in'));
+  document.getElementById('financeSavingsSub').addEventListener('click', ()=>addSavingsTransaction('saving_out'));
+  document.getElementById('financeSavingsAmount').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addSavingsTransaction('saving_in'); });
 
   const TAB_LABELS = { mindmap:'MAP', kanban:'TRELLO', todo:'TODO', checkin:'CHECK', finance:'THU CHI' };
 
@@ -3443,9 +3450,6 @@
   }
 
   function importFinanceTransactions(financeData){
-    if(!(Number(state.finance.savings) > 0) && Number(financeData.savings) > 0){
-      state.finance.savings = Number(financeData.savings);
-    }
     (financeData.transactions||[]).forEach(t=>{
       state.finance.transactions.push(Object.assign({}, t, { id: uid('f') }));
     });
