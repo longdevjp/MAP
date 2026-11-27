@@ -711,6 +711,22 @@
   @keyframes ftotalPulse{ 0%,100%{ border-color:var(--line); } 50%{ border-color:var(--c0); } }
   .ftotal-card.neg{ animation-name:none; }
 
+  /* Savings (tien tiet kiem - khong tieu) */
+  .fsave-card{
+    margin-top:12px; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--c1);
+    padding:16px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  .fsave-val{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:800; color:var(--c1); word-break:break-all; text-align:center; }
+  .fsave-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; }
+  #financeSavingsAmount{
+    width:170px; background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 10px; font-family:inherit; font-size:13px; outline:none; border-radius:0px;
+  }
+  #financeSavingsAmount:focus{ border-color:var(--accent); }
+  .fsave-row .btn{ padding:7px 12px; font-size:12px; }
+  .fsave-total{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted); letter-spacing:0.5px; text-align:center; }
+  .fsave-total b{ color:var(--c0); font-weight:700; }
+
   #financeSummary{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
   .fsum-card{
     background:var(--surface); border:1px solid var(--line); border-radius:0px; padding:18px 16px;
@@ -946,6 +962,17 @@
         <div class="fsum-cap">TONG DU</div>
         <div class="ftotal-val" id="financeAllBalance">0</div>
       </div>
+      <div class="fsave-card">
+        <div class="fsum-cap">TIEN TIET KIEM (KHONG TIEU)</div>
+        <div class="fsave-val" id="financeSavings">0 đ</div>
+        <div class="fsave-row">
+          <input type="number" id="financeSavingsAmount" placeholder="So tien" min="0" step="1000">
+          <button class="btn" id="financeSavingsAdd" title="Gui them vao tiet kiem">+ GUI</button>
+          <button class="btn" id="financeSavingsSub" title="Rut bot tu tiet kiem">- RUT</button>
+          <button class="btn" id="financeSavingsSet" title="Dat lai dung bang so nay">= DAT</button>
+        </div>
+        <div class="fsave-total">TONG TAI SAN (DU + TIET KIEM): <b id="financeGrandTotal">0 đ</b></div>
+      </div>
     </div>
 
     <div id="financeAddBox">
@@ -1121,7 +1148,7 @@
       },
       todo: { tasks: [], habits: [] },
       checkin: { entries: {} },
-      finance: { transactions: [] }
+      finance: { transactions: [], savings: 0 }
     };
   }
 
@@ -1195,6 +1222,7 @@
     if(!parsed.checkin.entries) parsed.checkin.entries = {};
     if(!parsed.finance) parsed.finance = defaultData().finance;
     if(!Array.isArray(parsed.finance.transactions)) parsed.finance.transactions = [];
+    parsed.finance.savings = Math.max(0, Number(parsed.finance.savings) || 0);
     return parsed;
   }
 
@@ -3123,6 +3151,11 @@
     document.getElementById('financeTotalCard').classList.toggle('neg', allBal < 0);
     animateMoney(balEl, allBal);
 
+    // savings (money kept aside, not spent) + grand total
+    const savings = Math.max(0, Number(state.finance.savings) || 0);
+    animateMoney(document.getElementById('financeSavings'), savings);
+    document.getElementById('financeGrandTotal').textContent = formatVND(allBal + savings) + ' đ';
+
     let list = monthTx;
     if(financeTypeFilter !== 'all') list = list.filter(t=>t.type===financeTypeFilter);
     list = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
@@ -3209,6 +3242,23 @@
   })();
 
   // ================= EXPORT (per-tab / per-item) =================
+  function updateSavings(mode){
+    const input = document.getElementById('financeSavingsAmount');
+    const v = Number(input.value);
+    if(!isFinite(v) || v < 0 || input.value === '') return;
+    let cur = Math.max(0, Number(state.finance.savings) || 0);
+    if(mode === 'add') cur += v;
+    else if(mode === 'sub') cur = Math.max(0, cur - v);
+    else cur = v;
+    state.finance.savings = cur;
+    input.value = '';
+    save(); renderFinance();
+  }
+  document.getElementById('financeSavingsAdd').addEventListener('click', ()=>updateSavings('add'));
+  document.getElementById('financeSavingsSub').addEventListener('click', ()=>updateSavings('sub'));
+  document.getElementById('financeSavingsSet').addEventListener('click', ()=>updateSavings('set'));
+  document.getElementById('financeSavingsAmount').addEventListener('keydown', (e)=>{ if(e.key==='Enter') updateSavings('add'); });
+
   const TAB_LABELS = { mindmap:'MAP', kanban:'TRELLO', todo:'TODO', checkin:'CHECK', finance:'THU CHI' };
 
   function slug(s){
@@ -3393,6 +3443,9 @@
   }
 
   function importFinanceTransactions(financeData){
+    if(!(Number(state.finance.savings) > 0) && Number(financeData.savings) > 0){
+      state.finance.savings = Number(financeData.savings);
+    }
     (financeData.transactions||[]).forEach(t=>{
       state.finance.transactions.push(Object.assign({}, t, { id: uid('f') }));
     });
